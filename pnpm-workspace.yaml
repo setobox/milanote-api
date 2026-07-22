@@ -1,0 +1,37 @@
+packages:
+  - apps/*
+  - packages/*
+  - tools/*
+
+catalogMode: prefer
+
+catalog:
+  "@cloudflare/vite-plugin": ^1.46.0
+  "@vitejs/plugin-vue": ^6.0.8
+  "@types/node": ^24
+  typescript: 5.9.3
+  unocss: ^66.7.5
+  vite: npm:@voidzero-dev/vite-plus-core@latest
+  vitest: 4.1.9
+  vite-plus: latest
+  vue: ^3.5.40
+  vue-tsc: ^3.3.7
+  wrangler: ^4.113.0
+overrides:
+  vite: "catalog:"
+  vitest: "catalog:"
+peerDependencyRules:
+  allowAny:
+    - vite
+    - vitest
+  allowedVersions:
+    vite: "*"
+    vitest: "*"
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true
+minimumReleaseAgeExclude:
+  - "@cloudflare/vite-plugin@1.46.0"
+  - miniflare@4.20260721.0
+  - wrangler@4.113.0

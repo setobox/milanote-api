@@ -1,0 +1,29 @@
+{
+  "name": "@milanote-api/playground",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "typecheck": "vp exec vue-tsc --noEmit -p tsconfig.app.json && vp exec tsc --noEmit -p tsconfig.worker.json && vp exec tsc --noEmit -p tsconfig.node.json",
+    "build": "vp run typecheck && vp build",
+    "preview": "vp run build && vp preview",
+    "test": "vp test",
+    "deploy": "vp run build && vp exec wrangler deploy"
+  },
+  "dependencies": {
+    "@milanote-api/parser": "workspace:*",
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "catalog:",
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "typescript": "catalog:",
+    "unocss": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vue-tsc": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
