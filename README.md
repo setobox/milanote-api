@@ -111,7 +111,7 @@ pnpm exec wrangler deploy --secrets-file .dev.vars
 pnpm run deploy
 ```
 
-自动部署需要在 GitHub 仓库配置 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。建议将 `MILANOTE_SHARE_URL` 仅保存于 Cloudflare，不要提交、公开，或放进前端 `VITE_` 环境变量。
+自动部署需要在 GitHub 仓库配置 `CLOUDFLARE_API_TOKEN`。建议将 `MILANOTE_SHARE_URL` 仅保存于 Cloudflare，不要提交、公开，或放进前端 `VITE_` 环境变量。
 
 ## 使用限制
 
