@@ -1,12 +1,15 @@
-import type { MilanoteDocument } from "@milanote-api/parser";
+import { milanoteDocumentSchema, type MilanoteDocument } from "@milanote-api/parser";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { boardApiResponseSchema, type BoardApiError } from "@/types/api.ts";
+import {
+  boardApiProjectionResponseSchema,
+  type BoardApiError,
+  type BoardApiProjection,
+} from "@/types/api.ts";
 
 type LoadStatus = "idle" | "loading" | "success" | "error";
 
 export interface UseBoardApiOptions {
-  endpoint?: string;
   fetcher?: typeof fetch;
 }
 
@@ -14,35 +17,44 @@ export interface UseBoardApiReturn {
   boardDocument: MilanoteDocument | undefined;
   error: BoardApiError | undefined;
   isLoading: boolean;
-  search: (shareUrl: string) => Promise<void>;
+  load: (requestPath: string) => Promise<void>;
+  responseData: BoardApiProjection | undefined;
   status: LoadStatus;
 }
 
 export function useBoardApi(options: UseBoardApiOptions = {}): UseBoardApiReturn {
-  const endpoint = options.endpoint ?? "/api/search";
   const fetcher = options.fetcher ?? fetch;
   const [boardDocument, setBoardDocument] = useState<MilanoteDocument>();
+  const [responseData, setResponseData] = useState<BoardApiProjection>();
   const [error, setError] = useState<BoardApiError>();
   const [status, setStatus] = useState<LoadStatus>("idle");
   const activeController = useRef<AbortController | undefined>(undefined);
 
-  const search = useCallback(
-    async (shareUrl: string): Promise<void> => {
+  const load = useCallback(
+    async (requestPath: string): Promise<void> => {
       activeController.current?.abort();
       const controller = new AbortController();
       activeController.current = controller;
       setBoardDocument(undefined);
+      setResponseData(undefined);
       setError(undefined);
       setStatus("loading");
 
+      const isInactive = (): boolean =>
+        controller.signal.aborted || activeController.current !== controller;
+
       try {
-        const query = new URLSearchParams({ url: shareUrl });
-        const response = await fetcher(`${endpoint}?${query.toString()}`, {
+        const response = await fetcher(requestPath, {
           cache: "no-cache",
           headers: { Accept: "application/json" },
           signal: controller.signal,
         });
-        const result = boardApiResponseSchema.safeParse(await response.json());
+        const responseBody: unknown = await response.json();
+        if (isInactive()) {
+          return;
+        }
+
+        const result = boardApiProjectionResponseSchema.safeParse(responseBody);
 
         if (!result.success) {
           throw new Error("INVALID_API_RESPONSE");
@@ -59,10 +71,12 @@ export function useBoardApi(options: UseBoardApiOptions = {}): UseBoardApiReturn
           throw new Error("INVALID_API_STATUS");
         }
 
-        setBoardDocument(payload.data);
+        const fullDocument = milanoteDocumentSchema.safeParse(payload.data);
+        setBoardDocument(fullDocument.success ? fullDocument.data : undefined);
+        setResponseData(payload.data);
         setStatus("success");
       } catch (caught: unknown) {
-        if (controller.signal.aborted) {
+        if (isInactive()) {
           return;
         }
 
@@ -80,7 +94,7 @@ export function useBoardApi(options: UseBoardApiOptions = {}): UseBoardApiReturn
         }
       }
     },
-    [endpoint, fetcher],
+    [fetcher],
   );
 
   useEffect(() => () => activeController.current?.abort(), []);
@@ -89,7 +103,8 @@ export function useBoardApi(options: UseBoardApiOptions = {}): UseBoardApiReturn
     boardDocument,
     error,
     isLoading: status === "loading",
-    search,
+    load,
+    responseData,
     status,
   };
 }

@@ -1,15 +1,23 @@
 import {
   fetchMilanoteBoard,
   MilanoteParserError,
+  milanoteDocumentSchema,
   milanoteShareUrlSchema,
   type MilanoteDocument,
 } from "@milanote-api/parser";
 
 import {
   boardApiErrorSchema,
-  boardApiSuccessSchema,
+  boardApiProjectionSuccessSchema,
   type BoardApiError,
 } from "../src/types/api.ts";
+import {
+  FieldSelectorError,
+  parseFieldSelectors,
+  selectDocumentFields,
+  type FieldSelection,
+  type FieldView,
+} from "./field-selectors.ts";
 
 export type BoardLoader = (shareUrl: string) => Promise<MilanoteDocument>;
 
@@ -90,26 +98,17 @@ async function createEtag(body: string): Promise<string> {
   return `W/"${value}"`;
 }
 
-function stableDocumentBody(document: MilanoteDocument): string {
-  return JSON.stringify(
-    apiSuccess({
-      board: document.board,
-      source: document.source,
-      version: document.version,
-    }),
-  );
-}
-
 function etagMatches(request: Request, etag: string): boolean {
   const candidate = request.headers.get("If-None-Match");
   if (!candidate) {
     return false;
   }
 
+  const weakValue = etag.replace(/^W\//, "");
   return candidate
     .split(",")
     .map((value) => value.trim())
-    .some((value) => value === "*" || value === etag);
+    .some((value) => value === "*" || value.replace(/^W\//, "") === weakValue);
 }
 
 function methodNotAllowed(request: Request, allowed: readonly string[]): Response {
@@ -176,7 +175,7 @@ function sanitizedFailure(error: unknown, head: boolean): Response {
     return jsonResponse(
       apiError({
         code: "BOARD_NOT_FOUND",
-        message: "The configured board is unavailable.",
+        message: "The shared board is unavailable.",
       }),
       404,
       { head },
@@ -222,24 +221,37 @@ function sanitizedFailure(error: unknown, head: boolean): Response {
 async function boardResponse(
   request: Request,
   dependencies: WorkerDependencies,
+  defaultView: FieldView,
 ): Promise<Response> {
   const isHead = request.method === "HEAD";
   const requestUrl = new URL(request.url);
-  const values = requestUrl.searchParams.getAll("url");
   const queryEntries = Array.from(requestUrl.searchParams);
+  const allowedQueryParameters = new Set(["exclude", "include", "url", "view"]);
+  const hasUnknownParameter = queryEntries.some(([name]) => !allowedQueryParameters.has(name));
+  const urlValues = requestUrl.searchParams.getAll("url");
+  const viewValues = requestUrl.searchParams.getAll("view");
+  const includeValues = requestUrl.searchParams.getAll("include");
+  const excludeValues = requestUrl.searchParams.getAll("exclude");
 
-  if (values.length !== 1 || queryEntries.length !== 1 || queryEntries[0]?.[0] !== "url") {
+  if (
+    hasUnknownParameter ||
+    urlValues.length !== 1 ||
+    viewValues.length > 1 ||
+    includeValues.length > 1 ||
+    excludeValues.length > 1
+  ) {
     return jsonResponse(
       apiError({
         code: "INVALID_REQUEST",
-        message: "Provide exactly one url query parameter and no other parameters.",
+        message:
+          "Provide one url parameter and each supported field-selection parameter at most once.",
       }),
       400,
       { head: isHead },
     );
   }
 
-  const shareUrl = values[0]?.trim() ?? "";
+  const shareUrl = urlValues[0]?.trim() ?? "";
   if (shareUrl.length === 0 || shareUrl.length > 2048) {
     return jsonResponse(
       apiError({
@@ -263,11 +275,66 @@ async function boardResponse(
     );
   }
 
+  const viewValue = viewValues[0];
+  const view =
+    viewValue === undefined
+      ? defaultView
+      : viewValue === "compact" || viewValue === "standard" || viewValue === "full"
+        ? viewValue
+        : undefined;
+
+  if (
+    !view ||
+    (includeValues.length === 1 && excludeValues.length === 1) ||
+    (viewValues.length === 1 && includeValues.length === 1)
+  ) {
+    return jsonResponse(
+      apiError({
+        code: "INVALID_REQUEST",
+        message: "Use include alone, exclude alone, view alone, or view together with exclude.",
+      }),
+      400,
+      { head: isHead },
+    );
+  }
+
+  let selection: FieldSelection;
   try {
-    const document = await dependencies.loader(validatedShareUrl.data);
-    const body = boardApiSuccessSchema.parse(apiSuccess(document));
+    if (includeValues[0] !== undefined) {
+      selection = {
+        include: parseFieldSelectors(includeValues[0], "include"),
+      };
+    } else {
+      selection = {
+        ...(excludeValues[0] === undefined
+          ? {}
+          : { exclude: parseFieldSelectors(excludeValues[0], "exclude") }),
+        view,
+      };
+    }
+  } catch (error: unknown) {
+    if (error instanceof FieldSelectorError) {
+      return jsonResponse(
+        apiError({
+          code: "INVALID_FIELD_SELECTOR",
+          field: error.field,
+          message: error.message,
+        }),
+        400,
+        { head: isHead },
+      );
+    }
+    throw error;
+  }
+
+  try {
+    const document = milanoteDocumentSchema.parse(
+      await dependencies.loader(validatedShareUrl.data),
+    );
+    const data = selectDocumentFields(document, selection);
+    const body = boardApiProjectionSuccessSchema.parse(apiSuccess(data));
     const serialized = JSON.stringify(body);
-    const etag = await createEtag(stableDocumentBody(document));
+    const etag = await createEtag(serialized);
     const headers = baseHeaders(BOARD_CACHE_CONTROL);
     headers.set("ETag", etag);
 
@@ -293,7 +360,10 @@ export async function handleRequest(
 ): Promise<Response> {
   const { pathname } = new URL(request.url);
 
-  if (pathname === "/api/search") {
+  const defaultView =
+    pathname === "/api/search" ? "compact" : pathname === "/api/detail" ? "full" : undefined;
+
+  if (defaultView) {
     if (request.method === "OPTIONS") {
       return preflight(["GET", "HEAD", "OPTIONS"]);
     }
@@ -302,7 +372,7 @@ export async function handleRequest(
       return methodNotAllowed(request, ["GET", "HEAD", "OPTIONS"]);
     }
 
-    return boardResponse(request, dependencies);
+    return boardResponse(request, dependencies, defaultView);
   }
 
   return notFound(request);
