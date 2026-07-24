@@ -27,12 +27,12 @@ catalog:
   tailwindcss: ^4.3.3
   typescript: 5.9.3
   vite: npm:@voidzero-dev/vite-plus-core@latest
+  vitepress: ^1.6.4
   vitest: 4.1.10
   vite-plus: latest
   wrangler: ^4.113.0
   zod: ^4.4.3
 overrides:
-  vite: "catalog:"
   vitest: "catalog:"
 peerDependencyRules:
   allowAny:

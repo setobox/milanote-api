@@ -4,11 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "ready": "vp check && vp run -r test && vp run -r build",
-    "dev": "vp run @milanote-api/playground#dev",
+    "ready": "vp check && vp run -r test && vp run build && vp run verify:site",
+    "dev": "vp run @milanote-api/docs#build && vp run @milanote-api/playground#dev",
     "test": "vp run -r test",
-    "build": "vp run -r build",
-    "deploy": "vp run @milanote-api/playground#deploy"
+    "build": "vp run @milanote-api/parser#build && vp run @milanote-api/playground#build",
+    "deploy": "vp run @milanote-api/playground#deploy",
+    "docs:dev": "vp run @milanote-api/docs#dev",
+    "docs:preview": "vp run @milanote-api/docs#preview",
+    "verify:site": "vp exec node tools/verify-site.mjs"
   },
   "devDependencies": {
     "typescript": "catalog:",

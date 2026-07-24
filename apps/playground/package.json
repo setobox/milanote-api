@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vp dev",
     "typecheck": "vp exec tsc --noEmit -p tsconfig.app.json && vp exec tsc --noEmit -p tsconfig.worker.json && vp exec tsc --noEmit -p tsconfig.node.json",
-    "build": "vp run typecheck && vp build",
+    "build": "vp run site:build",
     "preview": "vp run build && vp preview",
     "test": "vp test",
     "deploy": "vp run build && vp exec wrangler deploy"

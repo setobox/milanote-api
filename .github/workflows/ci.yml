@@ -39,7 +39,7 @@ jobs:
         run: vp run -r test
 
       - name: Build all workspaces
-        run: vp run -r build
+        run: vp run build
 
   deploy:
     name: Deploy to Cloudflare
@@ -66,7 +66,7 @@ jobs:
         run: vp install --frozen-lockfile
 
       - name: Build all workspaces
-        run: vp run -r build
+        run: vp run build
 
       - name: Deploy Worker and playground
         uses: cloudflare/wrangler-action@v3
