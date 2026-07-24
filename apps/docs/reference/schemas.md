@@ -58,3 +58,22 @@ const node: MilanoteNode = milanoteNodeSchema.parse(inputNode);
 - `milanoteShareUrlSchema`
 
 Zod 默认会从规范化对象中移除未知键；上游原始响应则由内部解析器宽容读取，二者职责不同。
+
+## HTTP 投影与完整模型
+
+`milanoteDocumentSchema` 描述完整规范化文档，不描述任意字段投影：
+
+| HTTP 数据                             | 可否按 `MilanoteDocument` 验证 |
+| ------------------------------------- | ------------------------------ |
+| `/api/detail` 默认响应                | 可以                           |
+| 任一端点显式 `view=full` 且未排除字段 | 可以                           |
+| `/api/search` 默认 `compact` 响应     | 不可以                         |
+| `view=compact` / `view=standard`      | 不可以                         |
+| 任意 `include` / `exclude` 结果       | 不保证                         |
+
+筛选后的成功响应仍是 `{ ok: true, data: object }`，但 `data` 是 partial DTO。客户端应按
+实际选择器定义自己的更小 schema，或将它作为经过 JSON 边界验证的通用对象处理，不能为了通过
+完整 schema 而伪造缺失字段。
+
+字段筛选发生在 Worker 层，并且晚于完整文档规范化与永久敏感字段过滤。Parser SDK 本身始终
+返回完整 `MilanoteDocument`。

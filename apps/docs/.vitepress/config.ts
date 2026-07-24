@@ -19,6 +19,7 @@ export default defineConfig({
     nav: [
       { text: "指南", link: "/guide/getting-started" },
       { text: "API", link: "/reference/http-api" },
+      { text: "字段筛选", link: "/reference/field-selectors" },
       { text: "数据模型", link: "/reference/schemas" },
       { text: "Playground", link: "/playground", target: "_self" },
     ],
@@ -33,7 +34,8 @@ export default defineConfig({
       {
         text: "HTTP API",
         items: [
-          { text: "GET /api/search", link: "/reference/http-api" },
+          { text: "Search 与 Detail", link: "/reference/http-api" },
+          { text: "字段选择器", link: "/reference/field-selectors" },
           { text: "错误码", link: "/reference/errors" },
           { text: "安全与缓存", link: "/guide/security" },
         ],

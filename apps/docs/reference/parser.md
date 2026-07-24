@@ -49,3 +49,15 @@ try {
 ## 公共入口边界
 
 原始响应解析与分享链接拆解是包内实现，不作为公共 API 导出。调用方应使用 `fetchMilanoteBoard`，或使用公开 Zod schemas 验证已有规范化数据。
+
+## 与 HTTP 字段筛选的关系
+
+`fetchMilanoteBoard` 总是返回完整 `MilanoteDocument`，不接受 `view`、`include` 或
+`exclude`。字段投影是 Cloudflare Worker HTTP 层的功能：
+
+- `/api/search` 默认生成 `compact` partial DTO。
+- `/api/detail` 默认返回 SDK 产生的完整文档。
+- 任一 HTTP 端点都可以通过[字段选择器](/reference/field-selectors)覆盖默认表示。
+
+如果库调用方需要筛选，应先保留 SDK 返回值的完整类型边界，再在自身应用层显式定义投影类型；
+不要把 HTTP partial DTO 声明为 `MilanoteDocument`。
