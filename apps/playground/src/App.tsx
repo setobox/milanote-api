@@ -1,5 +1,14 @@
-import type { MilanoteDocument } from "@milanote-api/parser";
-import { Activity, Braces, DatabaseZap, LayoutDashboard, RefreshCw, ServerCog } from "lucide-react";
+import { milanoteShareUrlSchema, type MilanoteDocument } from "@milanote-api/parser";
+import {
+  Activity,
+  Braces,
+  DatabaseZap,
+  LayoutDashboard,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
+import { type FormEvent, useState } from "react";
 
 import { BoardCanvas } from "@/components/board/BoardCanvas.tsx";
 import { JsonViewer } from "@/components/board/JsonViewer.tsx";
@@ -13,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card.tsx";
+import { Input } from "@/components/ui/input.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import { useBoardApi } from "@/hooks/useBoardApi.ts";
@@ -47,8 +57,31 @@ function BoardSummary({ document }: { document: MilanoteDocument }) {
 }
 
 export function App({ fetcher }: AppProps) {
-  const { boardDocument, error, isLoading, load, status } = useBoardApi({ fetcher });
+  const { boardDocument, error, isLoading, search, status } = useBoardApi({ fetcher });
+  const [shareUrl, setShareUrl] = useState("");
+  const [submittedUrl, setSubmittedUrl] = useState<string>();
+  const [inputError, setInputError] = useState<string>();
   const boardTitle = boardDocument ? getNodeLabel(boardDocument.board) : "Board inspector";
+
+  function submit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    const result = milanoteShareUrlSchema.safeParse(shareUrl);
+
+    if (!result.success) {
+      setInputError("请输入有效的 Milanote 公开分享链接。");
+      return;
+    }
+
+    setInputError(undefined);
+    setSubmittedUrl(result.data);
+    void search(result.data);
+  }
+
+  function retry(): void {
+    if (submittedUrl) {
+      void search(submittedUrl);
+    }
+  }
 
   return (
     <div className="min-h-svh bg-background text-foreground">
@@ -76,40 +109,77 @@ export function App({ fetcher }: AppProps) {
             <Card>
               <CardHeader>
                 <div className="mb-1 flex items-center gap-2 text-muted-foreground">
-                  <ServerCog className="size-4" aria-hidden="true" />
-                  <span className="font-mono text-[0.6875rem] tracking-wide uppercase">Source</span>
+                  <Search className="size-4" aria-hidden="true" />
+                  <span className="font-mono text-[0.6875rem] tracking-wide uppercase">
+                    GET /api/search
+                  </span>
                 </div>
-                <CardTitle>已配置的共享画板</CardTitle>
+                <CardTitle>解析共享画板</CardTitle>
                 <CardDescription>
-                  当前版本从 Worker Secret 读取分享链接。在线搜索将在后续 API commit 接入。
+                  粘贴你有权公开访问的 Milanote 分享链接，在线获取规范化数据。
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="rounded-md border bg-muted/50 p-3">
-                  <p className="text-[0.6875rem] text-muted-foreground uppercase">Endpoint</p>
-                  <code className="mt-1 block font-mono text-xs">GET /api/board</code>
-                </div>
-                <Button
-                  className="w-full"
-                  type="button"
-                  variant="outline"
-                  disabled={isLoading}
-                  aria-busy={isLoading}
-                  onClick={() => void load()}
-                >
-                  <RefreshCw className={isLoading ? "animate-spin" : ""} aria-hidden="true" />
-                  {isLoading ? "正在解析" : "重新抓取"}
-                </Button>
+              <CardContent>
+                <form className="grid gap-3" onSubmit={submit}>
+                  <label className="text-xs font-medium" htmlFor="share-url">
+                    Milanote 分享链接
+                  </label>
+                  <Input
+                    id="share-url"
+                    name="url"
+                    type="url"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="https://app.milanote.com/…?p=…"
+                    aria-invalid={Boolean(inputError)}
+                    aria-describedby={inputError ? "share-url-error" : "share-url-help"}
+                    value={shareUrl}
+                    onChange={(event) => {
+                      setShareUrl(event.currentTarget.value);
+                      if (inputError) setInputError(undefined);
+                    }}
+                  />
+                  {inputError ? (
+                    <p id="share-url-error" className="text-xs text-destructive" role="alert">
+                      {inputError}
+                    </p>
+                  ) : (
+                    <p id="share-url-help" className="text-xs leading-5 text-muted-foreground">
+                      链接仅用于当前请求，不会写入页面地址、本地存储或最近记录。
+                    </p>
+                  )}
+                  <Button className="w-full" type="submit" aria-busy={isLoading}>
+                    {isLoading ? (
+                      <RefreshCw className="animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Search aria-hidden="true" />
+                    )}
+                    {isLoading ? "正在解析" : "解析画板"}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
+
+            <Alert>
+              <ShieldCheck aria-hidden="true" />
+              <AlertTitle>隐私提示</AlertTitle>
+              <AlertDescription>
+                API 使用 GET 查询参数。分享链接可能出现在平台访问日志和 CDN
+                缓存键中，请勿提交私有或无权访问的画板。
+              </AlertDescription>
+            </Alert>
 
             {boardDocument ? (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm">响应摘要</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="grid gap-4">
                   <BoardSummary document={boardDocument} />
+                  <Button type="button" variant="outline" onClick={retry}>
+                    <RefreshCw aria-hidden="true" />
+                    重新抓取
+                  </Button>
                 </CardContent>
               </Card>
             ) : null}
@@ -118,7 +188,7 @@ export function App({ fetcher }: AppProps) {
 
         <section className="min-w-0 bg-workspace p-3 sm:p-4 lg:p-5" aria-live="polite">
           <div className="h-full min-h-[36rem] overflow-hidden rounded-xl border bg-card shadow-sm">
-            {isLoading && !boardDocument ? (
+            {isLoading ? (
               <div className="grid h-full min-h-[36rem] place-items-center p-8" role="status">
                 <div className="w-full max-w-md space-y-4">
                   <div className="flex items-center gap-3">
@@ -134,7 +204,7 @@ export function App({ fetcher }: AppProps) {
                   </p>
                 </div>
               </div>
-            ) : error && !boardDocument ? (
+            ) : error ? (
               <div className="grid h-full min-h-[36rem] place-items-center p-6">
                 <Alert className="max-w-lg border-destructive/30 bg-destructive/5">
                   <Badge variant="destructive" className="mb-2">
@@ -142,12 +212,7 @@ export function App({ fetcher }: AppProps) {
                   </Badge>
                   <AlertTitle>无法载入画板</AlertTitle>
                   <AlertDescription>{error.message}</AlertDescription>
-                  <Button
-                    className="mt-3 w-fit"
-                    type="button"
-                    variant="outline"
-                    onClick={() => void load()}
-                  >
+                  <Button className="mt-3 w-fit" type="button" variant="outline" onClick={retry}>
                     重新尝试
                   </Button>
                 </Alert>
@@ -175,13 +240,6 @@ export function App({ fetcher }: AppProps) {
                   </TabsList>
                 </div>
 
-                {error ? (
-                  <Alert className="m-4 w-auto border-destructive/30 bg-destructive/5">
-                    <AlertTitle>刷新失败，仍显示上一次结果</AlertTitle>
-                    <AlertDescription>{error.message}</AlertDescription>
-                  </Alert>
-                ) : null}
-
                 <TabsContent value="canvas" className="overflow-hidden">
                   {boardDocument.board.children.length > 0 ? (
                     <BoardCanvas board={boardDocument.board} />
@@ -202,8 +260,14 @@ export function App({ fetcher }: AppProps) {
                 </TabsContent>
               </Tabs>
             ) : (
-              <div className="grid min-h-[36rem] place-items-center text-sm text-muted-foreground">
-                等待画板数据
+              <div className="grid min-h-[36rem] place-items-center p-8 text-center">
+                <div className="max-w-sm">
+                  <Badge variant="outline">READY</Badge>
+                  <h2 className="mt-4 text-base font-semibold">输入分享链接开始解析</h2>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    结果将在这里以 Canvas 和 JSON 两种视图呈现。
+                  </p>
+                </div>
               </div>
             )}
           </div>

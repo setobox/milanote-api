@@ -1,6 +1,6 @@
 # Milanote JSON API
 
-将一个已发布的 Milanote 画板转换为稳定、易渲染的 JSON，并提供一个可直接查看结果的 playground。分享链接始终只在服务端使用，浏览器只请求本项目的同源 API。
+将一个已发布的 Milanote 画板转换为稳定、易渲染的 JSON，并提供一个可直接查看结果的 playground。
 
 > Milanote 的 `/api/boards` 是内部接口，响应可能变化。使用前请确认画板可以通过公开分享链接访问。
 
@@ -8,18 +8,10 @@
 
 需要 Node.js 22.18 或更高版本。
 
-在项目根目录安装依赖并创建本地密钥文件：
+在项目根目录安装依赖：
 
 ```bash
 pnpm install
-```
-
-复制粘贴 `apps/playground/.dev.vars.example`并改名 `apps/playground/.dev.vars`
-
-在 `apps/playground/.dev.vars` 填入完整的 Milanote 分享链接：
-
-```dotenv
-MILANOTE_SHARE_URL=https://app.milanote.com/...
 ```
 
 启动页面和 API：
@@ -28,13 +20,13 @@ MILANOTE_SHARE_URL=https://app.milanote.com/...
 pnpm run dev
 ```
 
-打开终端输出的本地地址，即可在 playground 中查看画板；也可以直接请求 `/api/board` 获取 JSON。
+打开终端输出的 `/playground`，输入分享链接即可查看画板；也可以直接请求 `/api/search?url=...` 获取 JSON。
 
 ## API
 
-### `GET /api/board`
+### `GET /api/search?url=<encoded-share-url>`
 
-读取配置的画板并返回规范化结果。接口不接受 URL、board ID 或 permission ID 参数，因此始终只会读取服务端配置的一个画板。
+读取指定的公开共享画板并返回规范化结果。`url` 必须是经过 URL 编码的完整 Milanote HTTPS 分享链接。
 
 ```json
 {
@@ -75,7 +67,7 @@ pnpm run dev
 
 ### `GET /api/health`
 
-返回服务状态及生产环境是否配置了分享链接，不会返回 Secret 的值。
+返回当前服务的运行状态。
 
 ## 验证
 
@@ -97,24 +89,15 @@ pnpm run build
 
 ## 部署
 
-首次部署前，先在 Cloudflare Worker 中创建加密 Secret `MILANOTE_SHARE_URL`。可以在 Cloudflare Dashboard 中设置，或在本机从 secrets file 部署：
-
-```bash
-cd apps/playground
-pnpm run build
-pnpm exec wrangler deploy --secrets-file .dev.vars
-```
-
-后续部署：
+部署到 Cloudflare：
 
 ```bash
 pnpm run deploy
 ```
 
-自动部署需要在 GitHub 仓库配置 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。建议将 `MILANOTE_SHARE_URL` 仅保存于 Cloudflare，不要提交、公开，或放进前端 `VITE_` 环境变量。
+自动部署需要在 GitHub 仓库配置 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。
 
 ## 使用限制
 
-- 配置的画板内容会通过公开 API 返回；需要保护画板时，请在 Worker 前增加访问控制。
-- 本地 `.dev.vars` 仅用于开发，已被忽略，不应提交到仓库。
+- GET 查询参数可能进入浏览器历史、CDN 缓存键和平台访问日志，只应解析有权公开访问的画板。
 - 上游接口变化时，请先更新解析器及其测试，再更新依赖该 JSON 的渲染代码。

@@ -1,6 +1,7 @@
 import {
   fetchMilanoteBoard,
   MilanoteParserError,
+  milanoteShareUrlSchema,
   type MilanoteDocument,
 } from "@milanote-api/parser";
 
@@ -10,10 +11,6 @@ import {
   type BoardApiError,
 } from "../src/types/api.ts";
 
-export interface Env {
-  MILANOTE_SHARE_URL?: string;
-}
-
 export type BoardLoader = (shareUrl: string) => Promise<MilanoteDocument>;
 
 export interface WorkerDependencies {
@@ -21,7 +18,7 @@ export interface WorkerDependencies {
 }
 
 export interface WorkerApp {
-  fetch(request: Request, env: Env): Promise<Response>;
+  fetch(request: Request): Promise<Response>;
 }
 
 interface ErrorBody {
@@ -189,10 +186,10 @@ function sanitizedFailure(error: unknown, head: boolean): Response {
   if (code === "INVALID_SHARE_URL") {
     return jsonResponse(
       apiError({
-        code: "CONFIGURATION_ERROR",
-        message: "The board source is not configured correctly.",
+        code: "INVALID_SHARE_URL",
+        message: "The share URL is not a valid Milanote public board link.",
       }),
-      503,
+      400,
       { head },
     );
   }
@@ -224,25 +221,50 @@ function sanitizedFailure(error: unknown, head: boolean): Response {
 
 async function boardResponse(
   request: Request,
-  env: Env,
   dependencies: WorkerDependencies,
 ): Promise<Response> {
   const isHead = request.method === "HEAD";
-  const shareUrl = env.MILANOTE_SHARE_URL?.trim();
+  const requestUrl = new URL(request.url);
+  const values = requestUrl.searchParams.getAll("url");
+  const queryEntries = Array.from(requestUrl.searchParams);
 
-  if (!shareUrl) {
+  if (values.length !== 1 || queryEntries.length !== 1 || queryEntries[0]?.[0] !== "url") {
     return jsonResponse(
       apiError({
-        code: "CONFIGURATION_ERROR",
-        message: "The board source is not configured.",
+        code: "INVALID_REQUEST",
+        message: "Provide exactly one url query parameter and no other parameters.",
       }),
-      503,
+      400,
+      { head: isHead },
+    );
+  }
+
+  const shareUrl = values[0]?.trim() ?? "";
+  if (shareUrl.length === 0 || shareUrl.length > 2048) {
+    return jsonResponse(
+      apiError({
+        code: "INVALID_REQUEST",
+        message: "The url query parameter must contain at most 2048 characters.",
+      }),
+      400,
+      { head: isHead },
+    );
+  }
+
+  const validatedShareUrl = milanoteShareUrlSchema.safeParse(shareUrl);
+  if (!validatedShareUrl.success) {
+    return jsonResponse(
+      apiError({
+        code: "INVALID_SHARE_URL",
+        message: "The share URL is not a valid Milanote public board link.",
+      }),
+      400,
       { head: isHead },
     );
   }
 
   try {
-    const document = await dependencies.loader(shareUrl);
+    const document = await dependencies.loader(validatedShareUrl.data);
     const body = boardApiSuccessSchema.parse(apiSuccess(document));
     const serialized = JSON.stringify(body);
     const etag = await createEtag(stableDocumentBody(document));
@@ -267,7 +289,6 @@ async function boardResponse(
 
 export async function handleRequest(
   request: Request,
-  env: Env,
   dependencies: WorkerDependencies = defaultDependencies,
 ): Promise<Response> {
   const { pathname } = new URL(request.url);
@@ -283,14 +304,13 @@ export async function handleRequest(
 
     return jsonResponse(
       apiSuccess({
-        configured: Boolean(env.MILANOTE_SHARE_URL?.trim()),
         status: "ok",
       }),
       200,
     );
   }
 
-  if (pathname === "/api/board") {
+  if (pathname === "/api/search") {
     if (request.method === "OPTIONS") {
       return preflight(["GET", "HEAD", "OPTIONS"]);
     }
@@ -299,7 +319,7 @@ export async function handleRequest(
       return methodNotAllowed(request, ["GET", "HEAD", "OPTIONS"]);
     }
 
-    return boardResponse(request, env, dependencies);
+    return boardResponse(request, dependencies);
   }
 
   return notFound(request);
@@ -311,7 +331,7 @@ export function createApp(dependencies: Partial<WorkerDependencies> = {}): Worke
   };
 
   return {
-    fetch: (request, env) => handleRequest(request, env, resolvedDependencies),
+    fetch: (request) => handleRequest(request, resolvedDependencies),
   };
 }
 
