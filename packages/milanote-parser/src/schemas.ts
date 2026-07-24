@@ -31,11 +31,6 @@ export const jsonValueSchema = z.json();
 
 export const milanoteShareUrlSchema = z.string().trim().min(1).max(2048).refine(isMilanoteShareUrl);
 
-export const milanoteShareReferenceSchema = z.object({
-  boardId: z.string().regex(IDENTIFIER_PATTERN),
-  permissionId: z.string().regex(IDENTIFIER_PATTERN),
-});
-
 export const milanoteSourceSchema = z.object({
   provider: z.literal("milanote"),
   boardId: z.string(),
@@ -352,7 +347,6 @@ export const milanoteDocumentSchema = z.object({
 
 export type JsonPrimitive = z.infer<typeof jsonPrimitiveSchema>;
 export type JsonValue = z.infer<typeof jsonValueSchema>;
-export type MilanoteShareReference = z.infer<typeof milanoteShareReferenceSchema>;
 export type MilanoteSource = z.infer<typeof milanoteSourceSchema>;
 export type MilanotePosition = z.infer<typeof milanotePositionSchema>;
 export type MilanoteLocation = z.infer<typeof milanoteLocationSchema>;

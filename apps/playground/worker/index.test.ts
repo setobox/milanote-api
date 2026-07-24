@@ -33,19 +33,6 @@ function loaderReturning(value: MilanoteDocument = documentFixture): BoardLoader
 }
 
 describe("playground Worker", () => {
-  it("reports health without configuration metadata", async () => {
-    const loader = loaderReturning();
-    const response = await createApp({ loader }).fetch(request("/api/health"));
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      data: { status: "ok" },
-      ok: true,
-    });
-    expect(loader).not.toHaveBeenCalled();
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-  });
-
   it("answers API preflight requests without validating a query", async () => {
     const loader = loaderReturning();
     const response = await createApp({ loader }).fetch(
@@ -196,7 +183,7 @@ describe("playground Worker", () => {
   it("returns a unified JSON error for old and unknown API paths", async () => {
     const app = createApp({ loader: loaderReturning() });
 
-    for (const path of ["/api/board", "/api/missing"]) {
+    for (const path of ["/api/board", "/api/health", "/api/missing"]) {
       const response = await app.fetch(request(path));
       expect(response.status).toBe(404);
       await expect(response.json()).resolves.toEqual({

@@ -1,4 +1,4 @@
-import type { JsonValue } from "./types.ts";
+import type { JsonValue } from "./schemas.ts";
 
 export type UnknownRecord = Record<string, unknown>;
 

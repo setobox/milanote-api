@@ -37,8 +37,7 @@ import type {
   MilanoteTaskNode,
   MilanoteTimestamps,
   MilanoteUnknownNode,
-  ParseMilanoteBoardOptions,
-} from "./types.ts";
+} from "./schemas.ts";
 
 interface RawElement {
   id: string;
@@ -54,6 +53,11 @@ interface ParseContext {
   childrenByParent: Map<string, RawElement[]>;
   canvasOrder: Map<string, string[]>;
   commentsByThread: Map<string, MilanoteComment[]>;
+}
+
+interface ParseMilanoteBoardOptions {
+  boardId: string;
+  fetchedAt?: Date | string;
 }
 
 interface NormalizedNodeBase<Type extends MilanoteNodeType> {

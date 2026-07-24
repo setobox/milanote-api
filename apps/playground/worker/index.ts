@@ -293,23 +293,6 @@ export async function handleRequest(
 ): Promise<Response> {
   const { pathname } = new URL(request.url);
 
-  if (pathname === "/api/health") {
-    if (request.method === "OPTIONS") {
-      return preflight(["GET", "OPTIONS"]);
-    }
-
-    if (request.method !== "GET") {
-      return methodNotAllowed(request, ["GET", "OPTIONS"]);
-    }
-
-    return jsonResponse(
-      apiSuccess({
-        status: "ok",
-      }),
-      200,
-    );
-  }
-
   if (pathname === "/api/search") {
     if (request.method === "OPTIONS") {
       return preflight(["GET", "HEAD", "OPTIONS"]);

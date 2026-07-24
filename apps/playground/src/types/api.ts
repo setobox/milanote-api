@@ -3,7 +3,6 @@ import { z } from "zod";
 
 export const boardApiErrorCodeSchema = z.enum([
   "BOARD_NOT_FOUND",
-  "CONFIGURATION_ERROR",
   "INTERNAL_ERROR",
   "INVALID_REQUEST",
   "INVALID_SHARE_URL",

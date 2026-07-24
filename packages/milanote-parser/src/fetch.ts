@@ -1,8 +1,9 @@
 import { MilanoteParserError } from "./errors.ts";
 import { isRecord, readNonEmptyString, readString, type UnknownRecord } from "./guards.ts";
 import { parseMilanoteBoardResponse } from "./parse.ts";
+import type { MilanoteDocument } from "./schemas.ts";
 import { parseMilanoteShareUrl } from "./share-url.ts";
-import type { FetchMilanoteBoardOptions, MilanoteDocument, MilanoteFetch } from "./types.ts";
+import type { FetchMilanoteBoardOptions, MilanoteFetch } from "./types.ts";
 
 const MILANOTE_ORIGIN = "https://app.milanote.com";
 const BOARD_BATCH_SIZE = 50;

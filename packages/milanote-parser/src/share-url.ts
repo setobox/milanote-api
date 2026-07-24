@@ -1,6 +1,10 @@
 import { MilanoteParserError } from "./errors.ts";
 import { milanoteShareUrlSchema } from "./schemas.ts";
-import type { MilanoteShareReference } from "./types.ts";
+
+interface MilanoteShareReference {
+  boardId: string;
+  permissionId: string;
+}
 
 export function parseMilanoteShareUrl(input: string): MilanoteShareReference {
   try {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { MilanoteParserError, parseMilanoteShareUrl } from "../src/index.ts";
+import { MilanoteParserError } from "../src/index.ts";
+import { parseMilanoteShareUrl } from "../src/share-url.ts";
 
 describe("parseMilanoteShareUrl", () => {
   test("extracts the first path segment and permission query", () => {

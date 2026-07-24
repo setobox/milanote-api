@@ -1,10 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import {
-  MilanoteParserError,
-  parseMilanoteBoardResponse,
-  type MilanoteDocument,
-  type MilanoteNode,
-} from "../src/index.ts";
+import { MilanoteParserError, type MilanoteDocument, type MilanoteNode } from "../src/index.ts";
+import { parseMilanoteBoardResponse } from "../src/parse.ts";
 import { fakeBoardResponse, ROOT_BOARD_ID } from "./fixtures/board-response.ts";
 
 function flatten(nodes: MilanoteNode[]): MilanoteNode[] {
