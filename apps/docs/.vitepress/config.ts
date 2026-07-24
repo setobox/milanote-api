@@ -20,7 +20,7 @@ export default defineConfig({
       { text: "指南", link: "/guide/getting-started" },
       { text: "API", link: "/reference/http-api" },
       { text: "数据模型", link: "/reference/schemas" },
-      { text: "Playground", link: "/playground" },
+      { text: "Playground", link: "/playground", target: "_self" },
     ],
     sidebar: [
       {

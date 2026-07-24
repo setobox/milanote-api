@@ -1,6 +1,6 @@
 # Playground
 
-[打开 Playground](/playground)
+<a href="/playground" target="_self">打开 Playground</a>
 
 Playground 是位于 `/playground` 的 React 单页工具，用于交互式检查公开共享画板。
 

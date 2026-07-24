@@ -12,6 +12,7 @@ hero:
     - theme: alt
       text: 打开 Playground
       link: /playground
+      target: _self
 
 features:
   - title: 单一公开端点

@@ -27,12 +27,22 @@ function assetExists(pathname) {
 }
 
 const brokenLinks = [];
+const interceptedPlaygroundLinks = [];
 for (const htmlFile of collectHtml(outputRoot)) {
   const html = readFileSync(htmlFile, "utf8");
+  const relativeHtmlFile = relative(outputRoot, htmlFile);
   const route = `/${relative(outputRoot, htmlFile).split(sep).join("/")}`.replace(
     /(?:index)?\.html$/,
     "",
   );
+
+  if (relativeHtmlFile !== join("playground", "index.html")) {
+    for (const match of html.matchAll(/<a\b[^>]*\bhref="\/playground"[^>]*>/g)) {
+      if (!/\btarget="_self"/.test(match[0])) {
+        interceptedPlaygroundLinks.push(relativeHtmlFile);
+      }
+    }
+  }
 
   for (const match of html.matchAll(/href="([^"]+)"/g)) {
     const href = match[1];
@@ -58,6 +68,14 @@ if (brokenLinks.length > 0) {
   throw new Error(`Broken internal site links:\n${brokenLinks.join("\n")}`);
 }
 
+if (interceptedPlaygroundLinks.length > 0) {
+  throw new Error(
+    `VitePress would intercept /playground links:\n${[...new Set(interceptedPlaygroundLinks)].join(
+      "\n",
+    )}`,
+  );
+}
+
 console.log(
-  `Verified ${collectHtml(outputRoot).length} HTML files, required routes, and internal links.`,
+  `Verified ${collectHtml(outputRoot).length} HTML files, required routes, full-page Playground links, and internal links.`,
 );
