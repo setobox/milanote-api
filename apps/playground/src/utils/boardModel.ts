@@ -24,21 +24,6 @@ const typeLabels: Record<NodeType, string> = {
   UNKNOWN: "Unknown",
 };
 
-const typeCodes: Record<NodeType, string> = {
-  BOARD: "BRD",
-  CARD: "NTE",
-  COLUMN: "COL",
-  COMMENT_THREAD: "CMT",
-  FILE: "FIL",
-  IMAGE: "IMG",
-  LINK: "LNK",
-  SKELETON: "—",
-  TABLE: "TBL",
-  TASK: "TSK",
-  TASK_LIST: "LST",
-  UNKNOWN: "???",
-};
-
 function trimmed(value: string | undefined): string | undefined {
   const result = value?.trim();
   return result ? result : undefined;
@@ -130,10 +115,6 @@ export function getNodeDescription(node: MilanoteNode): string | undefined {
 
 export function getNodeTypeLabel(type: NodeType): string {
   return typeLabels[type];
-}
-
-export function getNodeTypeCode(type: NodeType): string {
-  return typeCodes[type];
 }
 
 export function getImageUrl(node: MilanoteNode): string | undefined {
@@ -255,10 +236,6 @@ export function getTableRows(node: MilanoteNode): readonly (readonly string[])[]
   return node.table.rows.map((row) =>
     row.map((cell) => trimmed(cell.richText?.plainText) ?? cell.value),
   );
-}
-
-export function getUnknownKind(node: MilanoteNode): string | undefined {
-  return node.type === "UNKNOWN" ? trimmed(node.elementType) : undefined;
 }
 
 export function countDescendants(node: MilanoteNode): number {

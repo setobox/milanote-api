@@ -1,8 +1,7 @@
 import type { MilanoteNode } from "@milanote-api/parser";
 import { ExternalLink, FileText, ImageIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 
-import { Badge } from "@/components/ui/badge.tsx";
 import {
   formatCompactDate,
   getComments,
@@ -13,11 +12,9 @@ import {
   getNodeChildren,
   getNodeDescription,
   getNodeLabel,
-  getNodeTypeCode,
   getNodeTypeLabel,
   getTableRows,
   getTaskDueDate,
-  getUnknownKind,
   isTaskComplete,
 } from "@/utils/boardModel.ts";
 
@@ -46,29 +43,70 @@ function Heading({
   );
 }
 
+function InteractiveCount({
+  accessibleLabel,
+  count,
+  descriptionId,
+  visible,
+}: {
+  accessibleLabel: string;
+  count: number;
+  descriptionId: string;
+  visible: boolean;
+}) {
+  return (
+    <>
+      <span id={descriptionId} className="sr-only">
+        {accessibleLabel}
+      </span>
+      {visible ? (
+        <span className="shrink-0 font-mono text-xs text-muted-foreground" aria-hidden="true">
+          {count}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 export function BoardElement({ depth = 0, node }: BoardElementProps) {
+  const [hasFocusWithin, setHasFocusWithin] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const interactiveCountDescriptionId = useId();
   const children = getNodeChildren(node);
   const label = getNodeLabel(node);
   const description = getNodeDescription(node);
-  const typeCode = getNodeTypeCode(node.type);
   const typeLabel = getNodeTypeLabel(node.type);
   const imageUrl = getImageUrl(node);
   const linkUrl = getLinkUrl(node);
+  const showInteractiveCount = hasFocusWithin || isHovered;
 
   switch (node.type) {
     case "COLUMN":
       return (
-        <section className="min-w-0 rounded-xl border bg-card p-3 shadow-sm">
+        <section
+          className="min-w-0 rounded-xl border bg-card p-3 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-describedby={interactiveCountDescriptionId}
+          aria-label={`Column: ${label}`}
+          tabIndex={0}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setHasFocusWithin(false);
+            }
+          }}
+          onFocusCapture={() => setHasFocusWithin(true)}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
           <header className="mb-3 flex items-start justify-between gap-3 border-b pb-3">
-            <div className="min-w-0">
-              <Badge variant="outline">{typeCode}</Badge>
-              <Heading depth={depth} className="mt-2 break-words text-sm font-semibold">
-                {label}
-              </Heading>
-            </div>
-            <span className="shrink-0 font-mono text-xs text-muted-foreground">
-              {children.length}
-            </span>
+            <Heading depth={depth} className="min-w-0 break-words text-sm font-semibold">
+              {label}
+            </Heading>
+            <InteractiveCount
+              accessibleLabel={`Items: ${children.length}`}
+              count={children.length}
+              descriptionId={interactiveCountDescriptionId}
+              visible={showInteractiveCount}
+            />
           </header>
           {children.length > 0 ? (
             <div className="grid gap-2.5">
@@ -83,11 +121,10 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
     case "BOARD":
       return (
         <section className="min-w-0 rounded-xl border bg-card p-3 shadow-sm">
-          <header className="mb-3 flex items-center justify-between gap-3">
+          <header className="mb-3">
             <Heading depth={depth} className="min-w-0 truncate text-sm font-semibold">
               {label}
             </Heading>
-            <Badge variant="outline">{typeCode}</Badge>
           </header>
           <div className="grid gap-2.5">
             <Children children={children} depth={depth} />
@@ -98,8 +135,7 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
     case "CARD":
       return (
         <article className="min-w-0 rounded-lg border border-primary/15 bg-primary/5 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <Badge variant="secondary">{typeCode}</Badge>
+          <div className="mb-2">
             <span className="text-xs text-muted-foreground">{typeLabel}</span>
           </div>
           <p className="whitespace-pre-wrap break-words text-sm leading-6">{label}</p>
@@ -138,9 +174,8 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
               </div>
             )}
           </div>
-          <figcaption className="flex items-start justify-between gap-3 border-t bg-card p-3">
+          <figcaption className="border-t bg-card p-3">
             <span className="min-w-0 break-words text-sm">{label}</span>
-            <Badge variant="outline">{typeCode}</Badge>
           </figcaption>
         </figure>
       );
@@ -174,7 +209,6 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
                 <p className="mt-1 font-mono text-xs text-muted-foreground">{fileSize}</p>
               ) : null}
             </div>
-            <Badge variant="outline">{typeCode}</Badge>
           </div>
         </article>
       );
@@ -184,14 +218,9 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
       const linkHost = linkUrl ? new URL(linkUrl).hostname : undefined;
       return (
         <article className="min-w-0 rounded-lg border bg-card p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <Badge variant="outline">{typeCode}</Badge>
-            {linkHost ? (
-              <span className="max-w-44 truncate font-mono text-xs text-muted-foreground">
-                {linkHost}
-              </span>
-            ) : null}
-          </div>
+          {linkHost ? (
+            <div className="mb-2 truncate font-mono text-xs text-muted-foreground">{linkHost}</div>
+          ) : null}
           {linkUrl ? (
             <a
               className="inline-flex rounded text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -215,11 +244,10 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
     case "TASK_LIST":
       return (
         <section className="min-w-0 rounded-lg border bg-card p-3">
-          <header className="mb-2 flex items-center justify-between gap-3">
+          <header className="mb-2">
             <Heading depth={depth} className="text-sm font-semibold">
               {label}
             </Heading>
-            <Badge variant="outline">{typeCode}</Badge>
           </header>
           {children.length > 0 ? (
             <div className="grid gap-1">
@@ -269,11 +297,10 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
       const rows = getTableRows(node);
       return (
         <section className="min-w-0 overflow-hidden rounded-lg border bg-card">
-          <header className="flex items-center justify-between gap-3 border-b p-3">
+          <header className="border-b p-3">
             <Heading depth={depth} className="text-sm font-semibold">
               {label}
             </Heading>
-            <Badge variant="outline">{typeCode}</Badge>
           </header>
           {rows.length > 0 ? (
             <div className="overflow-x-auto" tabIndex={0}>
@@ -308,7 +335,20 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
     case "COMMENT_THREAD": {
       const comments = getComments(node);
       return (
-        <aside className="min-w-0 rounded-lg border-l-2 border-primary bg-muted p-3">
+        <aside
+          className="min-w-0 rounded-lg border-l-2 border-primary bg-muted p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-describedby={interactiveCountDescriptionId}
+          aria-label={label}
+          tabIndex={0}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setHasFocusWithin(false);
+            }
+          }}
+          onFocusCapture={() => setHasFocusWithin(true)}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
           <header className="mb-2 flex items-center justify-between gap-3">
             <Heading
               depth={depth}
@@ -316,7 +356,12 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
             >
               {label}
             </Heading>
-            <span className="font-mono text-xs text-muted-foreground">{comments.length}</span>
+            <InteractiveCount
+              accessibleLabel={`Comments: ${comments.length}`}
+              count={comments.length}
+              descriptionId={interactiveCountDescriptionId}
+              visible={showInteractiveCount}
+            />
           </header>
           {comments.length > 0 ? (
             <ol className="grid list-none gap-2">
@@ -359,26 +404,14 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
     case "SKELETON":
       return (
         <div className="min-w-0 rounded-lg border border-dashed bg-muted px-3 py-4 text-center">
-          <Badge variant="outline">{typeCode}</Badge>
-          <p className="mt-2 text-xs text-muted-foreground">
-            This item was not returned by the source.
-          </p>
+          <p className="text-xs text-muted-foreground">This item was not returned by the source.</p>
         </div>
       );
 
-    case "UNKNOWN": {
-      const unknownKind = getUnknownKind(node);
+    case "UNKNOWN":
       return (
         <article className="min-w-0 rounded-lg border border-dashed bg-card p-3">
-          <div className="flex items-center justify-between gap-2">
-            <Badge variant="outline">{typeCode}</Badge>
-            {unknownKind ? (
-              <span className="max-w-40 truncate font-mono text-xs text-muted-foreground">
-                {unknownKind}
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-3 break-words text-sm">{label}</p>
+          <p className="break-words text-sm">{label}</p>
           <code className="mt-2 block max-w-full truncate font-mono text-[0.6875rem] text-muted-foreground">
             {node.id}
           </code>
@@ -389,7 +422,6 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
           ) : null}
         </article>
       );
-    }
 
     default:
       return assertNever(node);
