@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
-    "typecheck": "vp exec vue-tsc --noEmit -p tsconfig.app.json && vp exec tsc --noEmit -p tsconfig.worker.json && vp exec tsc --noEmit -p tsconfig.node.json",
+    "typecheck": "vp exec tsc --noEmit -p tsconfig.app.json && vp exec tsc --noEmit -p tsconfig.worker.json && vp exec tsc --noEmit -p tsconfig.node.json",
     "build": "vp run typecheck && vp build",
     "preview": "vp run build && vp preview",
     "test": "vp test",
@@ -13,17 +13,30 @@
   },
   "dependencies": {
     "@milanote-api/parser": "workspace:*",
-    "vue": "catalog:"
+    "@radix-ui/react-tabs": "catalog:",
+    "class-variance-authority": "catalog:",
+    "clsx": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwind-merge": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@testing-library/dom": "catalog:",
+    "@testing-library/jest-dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
     "@types/node": "catalog:",
-    "@vitejs/plugin-vue": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "jsdom": "catalog:",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "unocss": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
-    "vue-tsc": "catalog:",
     "wrangler": "catalog:"
   }
 }
