@@ -2,7 +2,14 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { extname, join, relative, sep } from "node:path";
 
 const outputRoot = join(process.cwd(), "apps", "playground", "dist", "client");
-const requiredFiles = ["index.html", "404.html", join("playground", "index.html")];
+const requiredFiles = [
+  "index.html",
+  "404.html",
+  join("playground", "index.html"),
+  join("reference", "field-selectors.html"),
+  join("reference", "http-api.html"),
+];
+const workerRoutes = new Set(["/api/detail", "/api/search"]);
 
 for (const file of requiredFiles) {
   if (!existsSync(join(outputRoot, file))) {
@@ -27,7 +34,7 @@ function assetExists(pathname) {
 }
 
 const brokenLinks = [];
-const interceptedPlaygroundLinks = [];
+const interceptedFullPageLinks = [];
 for (const htmlFile of collectHtml(outputRoot)) {
   const html = readFileSync(htmlFile, "utf8");
   const relativeHtmlFile = relative(outputRoot, htmlFile);
@@ -36,11 +43,18 @@ for (const htmlFile of collectHtml(outputRoot)) {
     "",
   );
 
-  if (relativeHtmlFile !== join("playground", "index.html")) {
-    for (const match of html.matchAll(/<a\b[^>]*\bhref="\/playground"[^>]*>/g)) {
-      if (!/\btarget="_self"/.test(match[0])) {
-        interceptedPlaygroundLinks.push(relativeHtmlFile);
-      }
+  for (const match of html.matchAll(/<a\b[^>]*\bhref="([^"]+)"[^>]*>/g)) {
+    const href = match[1];
+    if (href === undefined) continue;
+
+    const target = new URL(href, `https://site.invalid${route || "/"}`);
+    const requiresFullPageNavigation =
+      (target.pathname === "/playground" &&
+        relativeHtmlFile !== join("playground", "index.html")) ||
+      workerRoutes.has(target.pathname);
+
+    if (requiresFullPageNavigation && !/\btarget="_self"/.test(match[0])) {
+      interceptedFullPageLinks.push(`${relativeHtmlFile} -> ${href}`);
     }
   }
 
@@ -57,7 +71,7 @@ for (const htmlFile of collectHtml(outputRoot)) {
     }
 
     const target = new URL(href, `https://site.invalid${route || "/"}`);
-    if (target.pathname === "/api/search") continue;
+    if (workerRoutes.has(target.pathname)) continue;
     if (!assetExists(target.pathname)) {
       brokenLinks.push(`${relative(outputRoot, htmlFile)} -> ${href}`);
     }
@@ -68,14 +82,14 @@ if (brokenLinks.length > 0) {
   throw new Error(`Broken internal site links:\n${brokenLinks.join("\n")}`);
 }
 
-if (interceptedPlaygroundLinks.length > 0) {
+if (interceptedFullPageLinks.length > 0) {
   throw new Error(
-    `VitePress would intercept /playground links:\n${[...new Set(interceptedPlaygroundLinks)].join(
+    `VitePress would intercept runtime route links:\n${[...new Set(interceptedFullPageLinks)].join(
       "\n",
     )}`,
   );
 }
 
 console.log(
-  `Verified ${collectHtml(outputRoot).length} HTML files, required routes, full-page Playground links, and internal links.`,
+  `Verified ${collectHtml(outputRoot).length} HTML files, required routes, full-page runtime links, and internal links.`,
 );
