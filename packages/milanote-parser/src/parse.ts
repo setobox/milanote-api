@@ -10,6 +10,7 @@ import {
   toJsonValue,
   type UnknownRecord,
 } from "./guards.ts";
+import { milanoteDocumentSchema } from "./schemas.ts";
 import type {
   JsonValue,
   MilanoteBoardNode,
@@ -26,7 +27,6 @@ import type {
   MilanoteLinkNode,
   MilanoteLocation,
   MilanoteNode,
-  MilanoteNodeBase,
   MilanoteNodeType,
   MilanotePosition,
   MilanoteRichText,
@@ -54,6 +54,14 @@ interface ParseContext {
   childrenByParent: Map<string, RawElement[]>;
   canvasOrder: Map<string, string[]>;
   commentsByThread: Map<string, MilanoteComment[]>;
+}
+
+interface NormalizedNodeBase<Type extends MilanoteNodeType> {
+  children: MilanoteNode[];
+  id: string;
+  location: MilanoteLocation;
+  timestamps: MilanoteTimestamps;
+  type: Type;
 }
 
 function toIsoTimestamp(value: unknown): string | undefined {
@@ -409,7 +417,7 @@ function baseNode<Type extends MilanoteNodeType>(
   raw: RawElement,
   type: Type,
   children: MilanoteNode[],
-): MilanoteNodeBase<Type> {
+): NormalizedNodeBase<Type> {
   return {
     id: raw.id,
     type,
@@ -728,7 +736,7 @@ export function parseMilanoteBoardResponse(
     throw new MilanoteParserError("INVALID_UPSTREAM_RESPONSE");
   }
 
-  return {
+  return milanoteDocumentSchema.parse({
     version: 1,
     source: {
       provider: "milanote",
@@ -736,5 +744,5 @@ export function parseMilanoteBoardResponse(
     },
     fetchedAt: normalizeFetchedAt(options.fetchedAt, input),
     board,
-  };
+  });
 }

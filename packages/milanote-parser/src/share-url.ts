@@ -1,29 +1,18 @@
 import { MilanoteParserError } from "./errors.ts";
+import { milanoteShareUrlSchema } from "./schemas.ts";
 import type { MilanoteShareReference } from "./types.ts";
-
-const MILANOTE_HOSTNAME = "app.milanote.com";
-const IDENTIFIER_PATTERN = /^[A-Za-z0-9_-]{1,256}$/;
 
 export function parseMilanoteShareUrl(input: string): MilanoteShareReference {
   try {
-    const url = new URL(input.trim());
-    const pathSegments = url.pathname.split("/").filter(Boolean);
-    const permissionValues = url.searchParams.getAll("p");
-    const boardId = decodeURIComponent(pathSegments[0] ?? "");
-    const permissionId = permissionValues[0] ?? "";
-
-    if (
-      url.protocol !== "https:" ||
-      url.hostname !== MILANOTE_HOSTNAME ||
-      (url.port !== "" && url.port !== "443") ||
-      url.username !== "" ||
-      url.password !== "" ||
-      permissionValues.length !== 1 ||
-      !IDENTIFIER_PATTERN.test(boardId) ||
-      !IDENTIFIER_PATTERN.test(permissionId)
-    ) {
+    const result = milanoteShareUrlSchema.safeParse(input);
+    if (!result.success) {
       throw new MilanoteParserError("INVALID_SHARE_URL");
     }
+
+    const url = new URL(result.data);
+    const pathSegments = url.pathname.split("/").filter(Boolean);
+    const boardId = decodeURIComponent(pathSegments[0] ?? "");
+    const permissionId = url.searchParams.get("p") ?? "";
 
     return { boardId, permissionId };
   } catch (error: unknown) {

@@ -30,6 +30,7 @@ catalog:
   vitest: 4.1.10
   vite-plus: latest
   wrangler: ^4.113.0
+  zod: ^4.4.3
 overrides:
   vite: "catalog:"
   vitest: "catalog:"

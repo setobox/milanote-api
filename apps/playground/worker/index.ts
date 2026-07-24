@@ -4,6 +4,12 @@ import {
   type MilanoteDocument,
 } from "@milanote-api/parser";
 
+import {
+  boardApiErrorSchema,
+  boardApiSuccessSchema,
+  type BoardApiError,
+} from "../src/types/api.ts";
+
 export interface Env {
   MILANOTE_SHARE_URL?: string;
 }
@@ -18,19 +24,8 @@ export interface WorkerApp {
   fetch(request: Request, env: Env): Promise<Response>;
 }
 
-interface ApiError {
-  code:
-    | "BOARD_NOT_FOUND"
-    | "CONFIGURATION_ERROR"
-    | "INTERNAL_ERROR"
-    | "METHOD_NOT_ALLOWED"
-    | "NOT_FOUND"
-    | "UPSTREAM_ERROR";
-  message: string;
-}
-
 interface ErrorBody {
-  error: ApiError;
+  error: BoardApiError;
   ok: false;
 }
 
@@ -60,8 +55,8 @@ function apiSuccess<T>(data: T): SuccessBody<T> {
   return { data, ok: true };
 }
 
-function apiError(error: ApiError): ErrorBody {
-  return { error, ok: false };
+function apiError(error: BoardApiError): ErrorBody {
+  return { error: boardApiErrorSchema.parse(error), ok: false };
 }
 
 function jsonResponse(
@@ -248,7 +243,7 @@ async function boardResponse(
 
   try {
     const document = await dependencies.loader(shareUrl);
-    const body = apiSuccess(document);
+    const body = boardApiSuccessSchema.parse(apiSuccess(document));
     const serialized = JSON.stringify(body);
     const etag = await createEtag(stableDocumentBody(document));
     const headers = baseHeaders(BOARD_CACHE_CONTROL);

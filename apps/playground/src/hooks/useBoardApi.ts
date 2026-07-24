@@ -1,7 +1,7 @@
 import type { MilanoteDocument } from "@milanote-api/parser";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { isBoardApiResponse, type BoardApiError } from "@/types/api.ts";
+import { boardApiResponseSchema, type BoardApiError } from "@/types/api.ts";
 
 type LoadStatus = "idle" | "loading" | "success" | "error";
 
@@ -39,12 +39,13 @@ export function useBoardApi(options: UseBoardApiOptions = {}): UseBoardApiReturn
         headers: { Accept: "application/json" },
         signal: controller.signal,
       });
-      const payload: unknown = await response.json();
+      const result = boardApiResponseSchema.safeParse(await response.json());
 
-      if (!isBoardApiResponse(payload)) {
+      if (!result.success) {
         throw new Error("INVALID_API_RESPONSE");
       }
 
+      const payload = result.data;
       if (!payload.ok) {
         setError(payload.error);
         setStatus("error");
