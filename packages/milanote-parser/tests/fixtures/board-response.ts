@@ -130,6 +130,7 @@ export const fakeBoardResponse: unknown = {
       },
       content: {
         mediaType: "website",
+        title: "Custom link title",
         link: {
           url: "https://example.test/article",
           title: "Example article",

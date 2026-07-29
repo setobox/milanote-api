@@ -74,7 +74,27 @@ describe("parseMilanoteBoardResponse", () => {
     const link = findNode(document, "link_demo");
     expect(link.type).toBe("LINK");
     if (link.type !== "LINK") throw new Error("Expected a link.");
+    expect(link.title).toBe("Custom link title");
     expect(link.caption?.plainText).toBe("Useful reference");
+  });
+
+  test("falls back to link metadata when a link has no custom title", () => {
+    const response = structuredClone(fakeBoardResponse) as {
+      elements: {
+        link_demo: {
+          content: { title?: string };
+        };
+      };
+    };
+    delete response.elements.link_demo.content.title;
+
+    const document = parseMilanoteBoardResponse(response, {
+      boardId: ROOT_BOARD_ID,
+    });
+    const link = findNode(document, "link_demo");
+    if (link.type !== "LINK") throw new Error("Expected a link.");
+
+    expect(link.title).toBe("Example article");
   });
 
   test("maps media, table cells, task metadata, comments, and unknown content", () => {

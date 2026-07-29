@@ -551,7 +551,9 @@ function parseKnownNode(
       const provider = readRecord(content, "provider");
       const url =
         (link === undefined ? undefined : readString(link, "url")) ?? readString(content, "url");
-      const title = link === undefined ? undefined : readString(link, "title");
+      const title =
+        readString(content, "title") ??
+        (link === undefined ? undefined : readString(link, "title"));
       const faviconUrl = link === undefined ? undefined : readString(link, "favicon");
       const mediaType = readString(content, "mediaType");
       const showCaption = readBoolean(content, "showCaption");
