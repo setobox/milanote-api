@@ -37,6 +37,86 @@ export const defaultIncludeSelectors = [
   "board.**.title",
 ] as const;
 
+export const customPresetStorageKey = "milanote-api.playground.custom-selectors";
+
+export interface FieldSelectorTreeNode {
+  children: readonly FieldSelectorTreeNode[];
+  label: string;
+  value?: string;
+}
+
+interface MutableFieldSelectorTreeNode {
+  children: Map<string, MutableFieldSelectorTreeNode>;
+  label: string;
+  value?: string;
+}
+
+function createSelectorTree(): readonly FieldSelectorTreeNode[] {
+  const groups = new Map<string, MutableFieldSelectorTreeNode>();
+
+  for (const option of fieldSelectorOptions) {
+    let group = groups.get(option.group);
+    if (!group) {
+      group = { children: new Map(), label: option.group };
+      groups.set(option.group, group);
+    }
+
+    let node = group;
+    for (const segment of option.value.split(".")) {
+      let child = node.children.get(segment);
+      if (!child) {
+        child = { children: new Map(), label: segment };
+        node.children.set(segment, child);
+      }
+      node = child;
+    }
+    node.label = option.label;
+    node.value = option.value;
+  }
+
+  const freeze = (node: MutableFieldSelectorTreeNode): FieldSelectorTreeNode => ({
+    children: [...node.children.values()].map(freeze),
+    label: node.label,
+    value: node.value,
+  });
+
+  return [...groups.values()].map(freeze);
+}
+
+export const fieldSelectorTree = createSelectorTree();
+
+/** Adds selectable parent fields required to retain a nested field's structure. */
+export function withSelectorDependencies(values: readonly string[]): readonly string[] {
+  const selected = new Set(values);
+  const selectable = new Set<string>(fieldSelectorOptions.map((option) => option.value));
+
+  for (const value of values) {
+    const segments = value.split(".");
+    for (let index = 1; index < segments.length; index += 1) {
+      const parent = segments.slice(0, index).join(".");
+      if (selectable.has(parent)) {
+        selected.add(parent);
+      }
+    }
+  }
+
+  return [...selected];
+}
+
+/** Toggles a selector while keeping nested selections and their parents consistent. */
+export function toggleSelectorWithDependencies(
+  values: readonly string[],
+  value: string,
+): readonly string[] {
+  if (!values.includes(value)) {
+    return withSelectorDependencies([...values, value]);
+  }
+
+  return withSelectorDependencies(
+    values.filter((candidate) => candidate !== value && !candidate.startsWith(`${value}.`)),
+  );
+}
+
 export type FieldView = "compact" | "full" | "standard";
 
 export type PlaygroundFilter =

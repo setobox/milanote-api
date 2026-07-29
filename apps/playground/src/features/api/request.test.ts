@@ -5,6 +5,8 @@ import {
   buildAbsoluteApiUrl,
   buildBoardRequestPath,
   fieldSelectorOptions,
+  toggleSelectorWithDependencies,
+  withSelectorDependencies,
   type PlaygroundFilter,
 } from "./request.ts";
 
@@ -94,5 +96,14 @@ describe("Playground API request builder", () => {
       expect(() => parseFieldSelectors(option.value, "include")).not.toThrow();
       expect(() => parseFieldSelectors(option.value, "exclude")).not.toThrow();
     }
+  });
+
+  it("adds selectable parents for nested custom fields", () => {
+    expect(withSelectorDependencies(["source.provider"])).toEqual(["source.provider", "source"]);
+    expect(withSelectorDependencies(["board.**.title"])).toEqual(["board.**.title"]);
+  });
+
+  it("clears nested custom fields when their parent is unchecked", () => {
+    expect(toggleSelectorWithDependencies(["source", "source.provider"], "source")).toEqual([]);
   });
 });
