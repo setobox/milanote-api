@@ -3,7 +3,12 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { buildBoardRequestPath, defaultIncludeSelectors } from "@/features/api/request.ts";
+import {
+  buildBoardRequestPath,
+  customPresetStorageKey,
+  defaultIncludeSelectors,
+  withSelectorDependencies,
+} from "@/features/api/request.ts";
 
 import { App } from "./App.tsx";
 
@@ -75,6 +80,10 @@ async function enterShareUrl(
   await user.type(input, value);
 }
 
+async function openAdvancedFieldSettings(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(screen.getByRole("button", { name: "高级字段筛选" }));
+}
+
 async function submitShareUrl(
   user: ReturnType<typeof userEvent.setup>,
   value = shareUrl,
@@ -91,6 +100,10 @@ describe("App", () => {
     render(<App fetcher={fetcher} />);
 
     expect(screen.getByText("输入分享链接开始解析")).toBeInTheDocument();
+    expect(screen.getByLabelText("返回预设")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "解析画板" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "复制完整 API 链接" })).not.toBeInTheDocument();
+    await openAdvancedFieldSettings(user);
     expect(screen.getByRole("button", { name: "复制完整 API 链接" })).toBeDisabled();
     expect(fetcher).not.toHaveBeenCalled();
 
@@ -136,6 +149,7 @@ describe("App", () => {
 
     render(<App apiOrigin="https://api.example" />);
     await enterShareUrl(user);
+    await openAdvancedFieldSettings(user);
     await user.click(screen.getByRole("button", { name: "复制完整 API 链接" }));
 
     expect(await screen.findByText("API 链接已复制")).toBeInTheDocument();
@@ -149,7 +163,8 @@ describe("App", () => {
     const user = userEvent.setup();
 
     render(<App fetcher={fetcher} />);
-    await user.selectOptions(screen.getByLabelText("预设"), "standard");
+    await user.selectOptions(screen.getByLabelText("返回预设"), "standard");
+    await openAdvancedFieldSettings(user);
     await user.click(
       screen.getByRole("checkbox", {
         name: "排除所有时间戳 (**.timestamps)",
@@ -183,11 +198,12 @@ describe("App", () => {
     const user = userEvent.setup();
 
     render(<App fetcher={fetcher} />);
-    await user.selectOptions(screen.getByLabelText("模式"), "include");
+    await openAdvancedFieldSettings(user);
+    await user.selectOptions(screen.getByLabelText("筛选方式"), "include");
     await submitShareUrl(user);
 
     const requestPath = buildBoardRequestPath(shareUrl, {
-      include: defaultIncludeSelectors,
+      include: withSelectorDependencies(defaultIncludeSelectors),
       mode: "include",
     });
     const parsedRequest = new URL(requestPath, "https://playground.invalid");
@@ -211,10 +227,12 @@ describe("App", () => {
       "包含所有节点 ID (board.**.id)",
       "包含所有节点类型 (board.**.type)",
       "包含所有节点标题 (board.**.title)",
+      "包含来源信息 (source)",
     ];
 
     render(<App fetcher={fetcher} />);
-    await user.selectOptions(screen.getByLabelText("模式"), "include");
+    await openAdvancedFieldSettings(user);
+    await user.selectOptions(screen.getByLabelText("筛选方式"), "include");
     for (const name of defaultCheckboxNames) {
       await user.click(screen.getByRole("checkbox", { name }));
     }
@@ -225,6 +243,18 @@ describe("App", () => {
 
     expect(screen.getByText("白名单模式至少需要选择一个字段。")).toBeInTheDocument();
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("loads a custom preset from localStorage and keeps parent selectors selected", async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem(customPresetStorageKey, JSON.stringify(["source.provider"]));
+
+    render(<App />);
+    await user.selectOptions(screen.getByLabelText("返回预设"), "custom");
+    await openAdvancedFieldSettings(user);
+
+    expect(screen.getByRole("checkbox", { name: "包含来源信息 (source)" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "包含来源类型 (source.provider)" })).toBeChecked();
   });
 
   it("shows selector errors and retries the exact submitted request", async () => {
@@ -253,7 +283,7 @@ describe("App", () => {
 
     expect(await screen.findByText("无法载入画板")).toBeInTheDocument();
     expect(screen.getByText("INVALID_FIELD_SELECTOR")).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("预设"), "compact");
+    await user.selectOptions(screen.getByLabelText("返回预设"), "compact");
     await user.click(screen.getByRole("button", { name: "重新尝试" }));
 
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));

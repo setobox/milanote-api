@@ -45,7 +45,7 @@ export function JsonViewer({ value }: { value: unknown }) {
 
   return (
     <section
-      className="flex h-full min-h-[32rem] flex-col gap-3 p-4 sm:p-5"
+      className="flex min-h-72 flex-col gap-3 p-4 sm:p-5"
       aria-labelledby="json-viewer-title"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">

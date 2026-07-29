@@ -8,7 +8,7 @@ export function BoardCanvas({ board }: { board: BoardNode }) {
   const hasColumns = board.children.some((node) => node.type === "COLUMN");
 
   return (
-    <section className="h-full min-h-[32rem] overflow-auto p-4 sm:p-5" aria-label="画板内容">
+    <section className="min-h-72 overflow-auto p-4 sm:p-5" aria-label="画板内容">
       <div
         className={
           hasColumns
