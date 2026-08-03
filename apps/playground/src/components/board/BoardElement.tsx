@@ -84,7 +84,7 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
     case "COLUMN":
       return (
         <section
-          className="min-w-0 rounded-xl border bg-card p-3 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="glass-board-column min-w-0 rounded-2xl border p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-describedby={interactiveCountDescriptionId}
           aria-label={`Column: ${label}`}
           tabIndex={0}
@@ -120,7 +120,7 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
 
     case "BOARD":
       return (
-        <section className="min-w-0 rounded-xl border bg-card p-3 shadow-sm">
+        <section className="glass-board-root min-w-0 rounded-2xl border p-3">
           <header className="mb-3">
             <Heading depth={depth} className="min-w-0 truncate text-sm font-semibold">
               {label}
@@ -134,7 +134,7 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
 
     case "CARD":
       return (
-        <article className="min-w-0 rounded-lg border border-primary/15 bg-primary/5 p-3">
+        <article className="glass-board-item min-w-0 rounded-xl border border-primary/15 p-3">
           <div className="mb-2">
             <span className="text-xs text-muted-foreground">{typeLabel}</span>
           </div>
@@ -154,8 +154,8 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
 
     case "IMAGE":
       return (
-        <figure className="min-w-0 overflow-hidden rounded-lg border bg-muted">
-          <div className="relative grid aspect-[4/3] place-items-center overflow-hidden bg-muted">
+        <figure className="glass-board-media min-w-0 overflow-hidden rounded-xl border">
+          <div className="relative grid aspect-[4/3] place-items-center overflow-hidden bg-muted/60">
             {imageUrl ? (
               <img
                 className="size-full object-contain"
@@ -174,7 +174,7 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
               </div>
             )}
           </div>
-          <figcaption className="border-t bg-card p-3">
+          <figcaption className="border-t bg-card/45 p-3">
             <span className="min-w-0 break-words text-sm">{label}</span>
           </figcaption>
         </figure>
@@ -184,9 +184,9 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
       const fileName = getFileName(node);
       const fileSize = getFileSize(node);
       return (
-        <article className="min-w-0 rounded-lg border bg-card p-3">
+        <article className="glass-board-item min-w-0 rounded-xl border p-3">
           <div className="flex items-start gap-3">
-            <div className="grid size-9 shrink-0 place-items-center rounded-md bg-muted">
+            <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted/70">
               <FileText className="size-4 text-muted-foreground" />
             </div>
             <div className="min-w-0 flex-1">
@@ -217,7 +217,7 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
     case "LINK": {
       const linkHost = linkUrl ? new URL(linkUrl).hostname : undefined;
       return (
-        <article className="min-w-0 rounded-lg border bg-card p-3">
+        <article className="glass-board-item min-w-0 rounded-xl border p-3">
           {linkHost ? (
             <div className="mb-2 truncate font-mono text-xs text-muted-foreground">{linkHost}</div>
           ) : null}
@@ -243,7 +243,7 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
 
     case "TASK_LIST":
       return (
-        <section className="min-w-0 rounded-lg border bg-card p-3">
+        <section className="glass-board-item min-w-0 rounded-xl border p-3">
           <header className="mb-2">
             <Heading depth={depth} className="text-sm font-semibold">
               {label}
@@ -296,7 +296,7 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
     case "TABLE": {
       const rows = getTableRows(node);
       return (
-        <section className="min-w-0 overflow-hidden rounded-lg border bg-card">
+        <section className="glass-board-item min-w-0 overflow-hidden rounded-xl border">
           <header className="border-b p-3">
             <Heading depth={depth} className="text-sm font-semibold">
               {label}
@@ -336,7 +336,7 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
       const comments = getComments(node);
       return (
         <aside
-          className="min-w-0 rounded-lg border-l-2 border-primary bg-muted p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="glass-board-comment min-w-0 rounded-xl border border-l-2 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-describedby={interactiveCountDescriptionId}
           aria-label={label}
           tabIndex={0}
@@ -366,7 +366,7 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
           {comments.length > 0 ? (
             <ol className="grid list-none gap-2">
               {comments.map((comment) => (
-                <li key={comment.id} className="rounded-md border bg-card p-2.5">
+                <li key={comment.id} className="rounded-lg border bg-card/45 p-2.5 backdrop-blur">
                   {comment.author || comment.createdAt ? (
                     <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-[0.6875rem] text-muted-foreground">
                       {comment.author ? (
@@ -403,14 +403,14 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
 
     case "SKELETON":
       return (
-        <div className="min-w-0 rounded-lg border border-dashed bg-muted px-3 py-4 text-center">
+        <div className="glass-board-dashed min-w-0 rounded-xl border border-dashed px-3 py-4 text-center">
           <p className="text-xs text-muted-foreground">This item was not returned by the source.</p>
         </div>
       );
 
     case "UNKNOWN":
       return (
-        <article className="min-w-0 rounded-lg border border-dashed bg-card p-3">
+        <article className="glass-board-dashed min-w-0 rounded-xl border border-dashed p-3">
           <p className="break-words text-sm">{label}</p>
           <code className="mt-2 block max-w-full truncate font-mono text-[0.6875rem] text-muted-foreground">
             {node.id}

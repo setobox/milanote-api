@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: Milanote API
-  text: 公开画板，可控 JSON
-  tagline: 通过一个分享链接获取完整 MilanoteDocument v1，或按字段投影异构递归画板。
+  text: 把公开画板变成可用的 JSON
+  tagline: 输入一个分享链接，获取完整画板数据，筛选需要的字段。
   actions:
     - theme: brand
       text: 快速开始
@@ -18,31 +18,28 @@ hero:
       target: _self
 
 features:
-  - title: 精简与完整双端点
-    details: /api/search 默认 compact，/api/detail 默认 full；两个端点共享稳定的 HTTP 契约。
-  - title: 递归字段筛选
-    details: view、include 与 exclude 支持点路径、透明数组、一层 * 与任意深度 **。
-  - title: Zod 4 数据边界
-    details: 完整文档、递归节点、富文本、媒体、表格和评论均有运行时 schema。
-  - title: Cloudflare 一体部署
-    details: 文档、React Playground 与 Worker API 共享同一域名和构建产物。
+  - title: 两种读取方式
+    details: /api/search 返回适合列表使用的精简数据；/api/detail 返回完整画板。
+  - title: 按字段取数据
+    details: 用 view、include 或 exclude 控制返回字段，支持路径和通配符。
+  - title: 数据可验证
+    details: 完整画板、节点、富文本、媒体、表格和评论都有 Zod schema。
+  - title: 一个部署产物
+    details: 文档、Playground 和 Worker API 共享域名和构建产物。
 ---
 
 ## 适用场景
 
-Milanote API 面向需要读取公开共享画板的原型、内部工具和数据管道。它将上游未公开且可能变化的结构，转换为版本化的 `MilanoteDocument`，再按需生成更小的 JSON 投影。
+Milanote API 用于读取公开共享画板。它把 Milanote 返回的画板内容整理成 `MilanoteDocument`，供原型、内部工具和数据处理任务使用。
 
-| 需求                 | 端点                                        |
-| -------------------- | ------------------------------------------- |
-| 列表、索引或搜索结果 | `GET /api/search`，默认 `compact`           |
-| 完整画板与 Canvas    | `GET /api/detail`，默认 `full`              |
-| 自定义字段           | 任一端点配合 `view`、`include` 或 `exclude` |
+## 选哪个端点？
 
-::: warning 从旧版迁移
-旧版 `/api/search` 的完整响应行为已迁移到 `/api/detail`。`/api/search` 现在默认返回精简字段；
-需要完整 `MilanoteDocument` 的调用方必须改用 `/api/detail`。
-:::
+| 需要什么                   | 使用方式                                   |
+| -------------------------- | ------------------------------------------ |
+| 列表、索引或搜索结果       | `GET /api/search`，默认返回 `compact` 数据 |
+| 完整画板或 Canvas 所需字段 | `GET /api/detail`，默认返回 `full` 数据    |
+| 自己决定字段               | 任一端点配合`view`、`include` 或 `exclude` |
 
-::: warning 上游兼容性
-Milanote 的 `/api/boards` 不是公开 API。项目会宽容读取未知字段，但上游仍可能随时发生破坏性变化。
-:::
+字段筛选后的数据不一定符合完整的 `MilanoteDocument`。选择规则见[字段选择器](/reference/field-selectors)，端点和迁移说明见 [HTTP API](/reference/http-api)。
+
+Milanote 的上游接口并未公开，返回内容可能变化。上线前请评估这一风险。

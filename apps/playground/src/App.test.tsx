@@ -81,7 +81,22 @@ async function enterShareUrl(
 }
 
 async function openAdvancedFieldSettings(user: ReturnType<typeof userEvent.setup>): Promise<void> {
-  await user.click(screen.getByRole("button", { name: "高级字段筛选" }));
+  await user.click(screen.getByRole("button", { name: /高级字段筛选/ }));
+  expect(await screen.findByRole("dialog", { name: "高级字段筛选" })).toBeInTheDocument();
+}
+
+async function selectOption(
+  user: ReturnType<typeof userEvent.setup>,
+  label: string,
+  option: string,
+): Promise<void> {
+  await user.click(screen.getByRole("combobox", { name: label }));
+  await user.click(await screen.findByRole("option", { name: option }));
+}
+
+async function applyFilterSettings(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(screen.getByRole("button", { name: "应用筛选" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 }
 
 async function submitShareUrl(
@@ -99,13 +114,14 @@ describe("App", () => {
 
     render(<App fetcher={fetcher} />);
 
-    expect(screen.getByText("输入分享链接开始解析")).toBeInTheDocument();
-    expect(screen.getByLabelText("返回预设")).toBeInTheDocument();
+    expect(screen.getByText("连接你的公开画板")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "返回预设" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "解析画板" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "复制完整 API 链接" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
     await openAdvancedFieldSettings(user);
-    expect(screen.getByRole("button", { name: "复制完整 API 链接" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "复制草稿 API 链接" })).toBeDisabled();
     expect(fetcher).not.toHaveBeenCalled();
+    await user.keyboard("{Escape}");
 
     await submitShareUrl(user, "https://example.com/private");
 
@@ -150,7 +166,7 @@ describe("App", () => {
     render(<App apiOrigin="https://api.example" />);
     await enterShareUrl(user);
     await openAdvancedFieldSettings(user);
-    await user.click(screen.getByRole("button", { name: "复制完整 API 链接" }));
+    await user.click(screen.getByRole("button", { name: "复制草稿 API 链接" }));
 
     expect(await screen.findByText("API 链接已复制")).toBeInTheDocument();
     expect(await navigator.clipboard.readText()).toBe(`https://api.example${requestPath}`);
@@ -163,7 +179,7 @@ describe("App", () => {
     const user = userEvent.setup();
 
     render(<App fetcher={fetcher} />);
-    await user.selectOptions(screen.getByLabelText("返回预设"), "standard");
+    await selectOption(user, "返回预设", "标准");
     await openAdvancedFieldSettings(user);
     await user.click(
       screen.getByRole("checkbox", {
@@ -175,6 +191,7 @@ describe("App", () => {
         name: "排除文件下载地址 (**.file.url)",
       }),
     );
+    await applyFilterSettings(user);
     await submitShareUrl(user);
 
     const requestPath = buildBoardRequestPath(shareUrl, {
@@ -198,8 +215,10 @@ describe("App", () => {
     const user = userEvent.setup();
 
     render(<App fetcher={fetcher} />);
+    await enterShareUrl(user);
     await openAdvancedFieldSettings(user);
-    await user.selectOptions(screen.getByLabelText("筛选方式"), "include");
+    await selectOption(user, "筛选方式", "仅保留选中字段");
+    await applyFilterSettings(user);
     await submitShareUrl(user);
 
     const requestPath = buildBoardRequestPath(shareUrl, {
@@ -232,14 +251,13 @@ describe("App", () => {
 
     render(<App fetcher={fetcher} />);
     await openAdvancedFieldSettings(user);
-    await user.selectOptions(screen.getByLabelText("筛选方式"), "include");
+    await selectOption(user, "筛选方式", "仅保留选中字段");
     for (const name of defaultCheckboxNames) {
       await user.click(screen.getByRole("checkbox", { name }));
     }
-    await enterShareUrl(user);
 
-    expect(screen.getByRole("button", { name: "复制完整 API 链接" })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "解析画板" }));
+    expect(screen.getByRole("button", { name: "复制草稿 API 链接" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "应用筛选" }));
 
     expect(screen.getByText("白名单模式至少需要选择一个字段。")).toBeInTheDocument();
     expect(fetcher).not.toHaveBeenCalled();
@@ -250,11 +268,57 @@ describe("App", () => {
     window.localStorage.setItem(customPresetStorageKey, JSON.stringify(["source.provider"]));
 
     render(<App />);
-    await user.selectOptions(screen.getByLabelText("返回预设"), "custom");
-    await openAdvancedFieldSettings(user);
+    await selectOption(user, "返回预设", "自定义（本地保存）");
 
     expect(screen.getByRole("checkbox", { name: "包含来源信息 (source)" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "包含来源类型 (source.provider)" })).toBeChecked();
+  });
+
+  it("keeps draft filter changes local until they are applied", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ data: documentFixture, ok: true }),
+    );
+    const user = userEvent.setup();
+
+    render(<App fetcher={fetcher} />);
+    await enterShareUrl(user);
+    await openAdvancedFieldSettings(user);
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "排除所有时间戳 (**.timestamps)",
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "取消" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /高级字段筛选/ })).toHaveTextContent("未设置");
+    await user.click(screen.getByRole("button", { name: "解析画板" }));
+
+    expect(fetcher).toHaveBeenCalledWith(
+      buildBoardRequestPath(shareUrl, {
+        exclude: [],
+        mode: "view",
+        view: "full",
+      }),
+      expect.objectContaining({ cache: "no-cache" }),
+    );
+  });
+
+  it("persists a manual appearance choice and updates the document color", async () => {
+    const user = userEvent.setup();
+    const themeColor = document.createElement("meta");
+    themeColor.name = "theme-color";
+    document.head.append(themeColor);
+
+    const { unmount } = render(<App />);
+    await user.click(screen.getByRole("button", { name: "切换为夜间模式" }));
+
+    expect(document.documentElement).toHaveClass("dark");
+    expect(window.localStorage.getItem("vitepress-theme-appearance")).toBe("dark");
+    expect(themeColor.content).toBe("#141413");
+
+    unmount();
+    themeColor.remove();
   });
 
   it("shows selector errors and retries the exact submitted request", async () => {
@@ -283,7 +347,7 @@ describe("App", () => {
 
     expect(await screen.findByText("无法载入画板")).toBeInTheDocument();
     expect(screen.getByText("INVALID_FIELD_SELECTOR")).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("返回预设"), "compact");
+    await selectOption(user, "返回预设", "精简");
     await user.click(screen.getByRole("button", { name: "重新尝试" }));
 
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));

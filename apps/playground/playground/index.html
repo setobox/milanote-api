@@ -4,8 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="在线解析和检查 Milanote 共享画板" />
-    <meta name="theme-color" content="#f5f7f6" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0b0e0d" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f0efe8" />
+    <script>
+      (() => {
+        try {
+          const preference = localStorage.getItem("vitepress-theme-appearance");
+          const isDark =
+            preference === "dark" ||
+            (preference !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.classList.toggle("dark", isDark);
+          document.documentElement.dataset.theme = isDark ? "dark" : "light";
+          document
+            .querySelector('meta[name="theme-color"]')
+            ?.setAttribute("content", isDark ? "#141413" : "#f0efe8");
+        } catch {
+          // Privacy-restricted contexts will use the stylesheet's light fallback.
+        }
+      })();
+    </script>
     <title>Milanote API Playground</title>
   </head>
   <body>

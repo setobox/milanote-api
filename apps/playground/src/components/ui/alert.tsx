@@ -8,7 +8,7 @@ function Alert({ className, ...props }: ComponentProps<"div">) {
       data-slot="alert"
       role="alert"
       className={cn(
-        "relative grid w-full gap-1 rounded-lg border bg-card px-4 py-3 text-sm text-card-foreground",
+        "glass-alert relative grid w-full gap-1 rounded-2xl border px-4 py-3 text-sm text-card-foreground",
         className,
       )}
       {...props}

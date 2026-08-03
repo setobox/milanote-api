@@ -1,6 +1,6 @@
 # Parser SDK
 
-`@milanote-api/parser` 提供高层抓取函数、稳定错误类型、规范化 schemas 与推导类型。
+`@milanote-api/parser` 提供画板抓取函数、错误类型、规范化 schema 和对应的 TypeScript 类型。
 
 ## `fetchMilanoteBoard`
 
@@ -30,13 +30,13 @@ try {
 | `fetch`     | `typeof globalThis.fetch` | 全局 fetch | 注入网络实现或测试替身 |
 | `now`       | `() => Date`              | 当前时间   | 控制 `fetchedAt`       |
 | `maxBoards` | `number`                  | `100`      | 限制递归加载的画板数量 |
-| `timeoutMs` | `number`                  | `15000`    | 整个上游请求过程的超时 |
+| `timeoutMs` | `number`                  | `15000`    | 整个上游请求的超时时间 |
 
 `maxBoards` 和 `timeoutMs` 必须是正安全整数。
 
 ## 错误
 
-`MilanoteParserError.code` 可能为：
+`MilanoteParserError.code` 的可能值：
 
 - `INVALID_SHARE_URL`
 - `UPSTREAM_REQUEST_FAILED`
@@ -44,20 +44,18 @@ try {
 - `INVALID_UPSTREAM_RESPONSE`
 - `BOARD_NOT_FOUND`
 
-错误消息不包含分享链接、permission ID、token 或上游响应详情。
+错误消息不会带出分享链接、permission ID、token 或上游响应详情。
 
-## 公共入口边界
+## 公共 API
 
-原始响应解析与分享链接拆解是包内实现，不作为公共 API 导出。调用方应使用 `fetchMilanoteBoard`，或使用公开 Zod schemas 验证已有规范化数据。
+原始响应解析和分享链接拆解属于包内实现，不从公共入口导出。调用方应使用 `fetchMilanoteBoard` 抓取数据，或用公开的 Zod schema 验证已有的规范化数据。
 
 ## 与 HTTP 字段筛选的关系
 
-`fetchMilanoteBoard` 总是返回完整 `MilanoteDocument`，不接受 `view`、`include` 或
-`exclude`。字段投影是 Cloudflare Worker HTTP 层的功能：
+`fetchMilanoteBoard` 始终返回完整 `MilanoteDocument`，不接受 `view`、`include` 或 `exclude`。字段筛选只存在于 Worker HTTP 层：
 
-- `/api/search` 默认生成 `compact` partial DTO。
-- `/api/detail` 默认返回 SDK 产生的完整文档。
-- 任一 HTTP 端点都可以通过[字段选择器](/reference/field-selectors)覆盖默认表示。
+- `/api/search` 默认返回 `compact` 数据。
+- `/api/detail` 默认返回完整数据。
+- 任一端点都能通过[字段选择器](/reference/field-selectors)覆盖默认返回字段。
 
-如果库调用方需要筛选，应先保留 SDK 返回值的完整类型边界，再在自身应用层显式定义投影类型；
-不要把 HTTP partial DTO 声明为 `MilanoteDocument`。
+SDK 调用方如果需要筛选，应在应用中定义自己的投影类型。不要把 HTTP 返回的裁剪数据声明成 `MilanoteDocument`。

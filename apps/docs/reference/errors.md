@@ -1,6 +1,6 @@
 # HTTP 错误码
 
-所有失败响应都使用相同结构，并设置 `Cache-Control: no-store`：
+失败响应使用同一结构，并带有 `Cache-Control: no-store`：
 
 ```json
 {
@@ -12,21 +12,20 @@
 }
 ```
 
-字段选择器错误可以额外包含 `"field": "include"` 或 `"field": "exclude"`。`field`
-在公共错误 schema 中是可选字段，其他错误不会依赖它。
+字段选择器报错时，`error` 还可能包含 `field: "include"` 或 `field: "exclude"`。这个字段是可选的，其他错误通常不会返回它。
 
-| HTTP  | code                     | 含义                                                               |
-| ----- | ------------------------ | ------------------------------------------------------------------ |
-| `400` | `INVALID_REQUEST`        | 查询参数缺失、重复、过长、存在未知参数，或筛选参数组合冲突         |
-| `400` | `INVALID_SHARE_URL`      | URL 不是合法 Milanote 公开分享链接                                 |
-| `400` | `INVALID_FIELD_SELECTOR` | `include`/`exclude` 为空、语法非法、未知、过多、过深或请求敏感字段 |
-| `404` | `BOARD_NOT_FOUND`        | 上游确认画板不存在                                                 |
-| `404` | `NOT_FOUND`              | API 路由不存在                                                     |
-| `405` | `METHOD_NOT_ALLOWED`     | 端点不支持该 HTTP 方法                                             |
-| `502` | `UPSTREAM_ERROR`         | Milanote 不可达、拒绝访问或返回无法解析的数据                      |
-| `500` | `INTERNAL_ERROR`         | 未知内部失败                                                       |
+| HTTP  | code                     | 含义                                                                   |
+| ----- | ------------------------ | ---------------------------------------------------------------------- |
+| `400` | `INVALID_REQUEST`        | 查询参数缺失、重复、过长、包含未知参数，或筛选参数组合冲突             |
+| `400` | `INVALID_SHARE_URL`      | URL 不是合法的 Milanote 公开分享链接                                   |
+| `400` | `INVALID_FIELD_SELECTOR` | `include`/`exclude` 为空、语法错误、未知、过多、过深，或请求了敏感字段 |
+| `404` | `BOARD_NOT_FOUND`        | 上游确认画板不存在                                                     |
+| `404` | `NOT_FOUND`              | API 路由不存在                                                         |
+| `405` | `METHOD_NOT_ALLOWED`     | 端点不支持该 HTTP 方法                                                 |
+| `502` | `UPSTREAM_ERROR`         | Milanote 暂时不可达、拒绝访问，或返回的数据无法解析                    |
+| `500` | `INTERNAL_ERROR`         | 未预期的服务端错误                                                     |
 
-例如未知字段：
+例如，选择了未知字段：
 
 ```json
 {
@@ -39,6 +38,4 @@
 }
 ```
 
-`include + exclude`、`view + include` 等组合冲突属于 `INVALID_REQUEST`，而不是选择器错误。
-服务端不会在错误中回显输入链接、permission ID、token 或上游详情。`HEAD` 错误响应保留状态与
-响应头，但 body 为空。
+`include + exclude`、`view + include` 等冲突属于 `INVALID_REQUEST`，不是字段选择器错误。为避免泄露信息，错误响应不会回显输入链接、permission ID、token 或上游详情。

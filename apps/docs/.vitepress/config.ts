@@ -4,12 +4,23 @@ export default defineConfig({
   lang: "zh-CN",
   title: "Milanote API",
   titleTemplate: ":title · Milanote API",
-  description: "将 Milanote 公开共享画板解析为稳定、可验证的 JSON。",
+  description: "把 Milanote 公开共享画板整理为可验证的 JSON。",
   cleanUrls: true,
   ignoreDeadLinks: ["/playground"],
   head: [
-    ["meta", { name: "theme-color", content: "#16a34a" }],
+    ["meta", { name: "theme-color", content: "#f0efe8" }],
     ["meta", { name: "color-scheme", content: "light dark" }],
+    [
+      "script",
+      {},
+      `(() => {
+        try {
+          const preference = localStorage.getItem("vitepress-theme-appearance");
+          const isDark = preference === "dark" || (preference !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+          document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#141413" : "#f0efe8");
+        } catch {}
+      })();`,
+    ],
   ],
   markdown: {
     lineNumbers: true,
@@ -80,7 +91,7 @@ export default defineConfig({
       linkText: "回到文档首页",
     },
     footer: {
-      message: "Milanote 的上游接口未公开，生产使用前请评估兼容性风险。",
+      message: "Milanote 上游接口未公开；生产环境请做好兼容性预案。",
     },
   },
 });
