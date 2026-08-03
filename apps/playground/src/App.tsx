@@ -4,6 +4,7 @@ import {
   Clipboard,
   DatabaseZap,
   Filter,
+  Github,
   LayoutDashboard,
   Moon,
   RefreshCw,
@@ -646,7 +647,7 @@ export function App({ apiOrigin, fetcher }: AppProps) {
             <Badge variant="success">已解析</Badge>
           ) : null}
           <Button
-            className="size-10 rounded-xl"
+            className="size-10 rounded-xl cursor-pointer"
             type="button"
             size="icon"
             variant="outline"
@@ -654,6 +655,21 @@ export function App({ apiOrigin, fetcher }: AppProps) {
             onClick={toggleAppearance}
           >
             {appearance === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+          </Button>
+          {/* 跳转github */}
+          <Button
+            className="size-10 rounded-xl cursor-pointer"
+            type="button"
+            size="icon"
+            variant="outline"
+          >
+            <a
+              href="https://github.com/setobox/milanote-api"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Github className="size-4" aria-hidden="true" />
+            </a>
           </Button>
         </div>
       </header>
