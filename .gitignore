@@ -31,5 +31,15 @@ dist-ssr
 *.sln
 *.sw?
 
-# AI agent worktrees
-.claude/worktrees/
+# AI assistant instructions and local configuration
+
+.agents/
+.claude/
+.codex/
+.cursor/
+.windsurf/
+.cursorrules
+.windsurfrules
+.github/copilot-instructions.md
+.github/instructions/
+.github/prompts/
