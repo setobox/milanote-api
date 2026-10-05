@@ -1,101 +1,94 @@
 # HTTP API
 
-两个只读端点都解析 Milanote 公开分享链接，并使用相同的成功和错误响应格式。区别在于默认返回的数据：
+## 解析画板
 
-| 端点              | 默认视图  | 适合什么场景                               |
-| ----------------- | --------- | ------------------------------------------ |
-| `GET /api/search` | `compact` | 列表、索引、搜索结果和低带宽读取           |
-| `GET /api/detail` | `full`    | 完整 `MilanoteDocument`、Canvas 和数据归档 |
+`POST /api/boards/parse`，请求体为 JSON，最大 32 KiB。
 
-::: warning 从旧版 `/api/search` 升级
-旧版 `/api/search` 默认返回完整画板。现在完整响应改由 `/api/detail` 提供，`/api/search` 默认只返回精简数据。如果现有调用方会读取 `fetchedAt`、完整节点内容、媒体、表格或评论，请改用 `/api/detail`。
-:::
+| 字段    | 默认值 | 说明                                  |
+| ------- | ------ | ------------------------------------- |
+| url     | 必填   | 1–2048 字符的 Milanote HTTPS 分享链接 |
+| scope   | root   | root 只读当前画板；tree 递归子画板    |
+| view    | full   | full、standard、compact               |
+| include | 无     | 要保留的字段路径数组，1–100 项        |
+| exclude | 无     | 要排除的字段路径数组，1–100 项        |
 
-字段筛选后的 `data` 不一定符合完整 `MilanoteDocument`。下文将它称为“裁剪后的数据”（partial DTO）；选择规则见[字段选择器](/reference/field-selectors)。
+不接受未知字段。`include` 不能与 `view` 或 `exclude` 同时出现。`scope` 独立于字段选择：精简响应不等于减少上游抓取。
 
-## 查询参数
+所有参数从 POST JSON 读取。调试台地址中的查询参数仅方便查看当前配置，不替代请求体，也不会覆盖请求体。实时接口默认不要求 Bearer Token；接入方可在自部署代理增加认证，见[跨域连接与认证](../guide/deployment#跨域连接与认证)。
 
-| 参数      | 约束                                                   |
-| --------- | ------------------------------------------------------ |
-| `url`     | 必须且只能出现一次；去除首尾空白后为 1–2048 个字符     |
-| `view`    | 可选且最多一次；取值为 `compact`、`standard` 或 `full` |
-| `include` | 可选且最多一次；逗号分隔的保留字段                     |
-| `exclude` | 可选且最多一次；逗号分隔的排除字段                     |
+<!-- api-example -->
 
-`url` 必须是 `https:` 的 `app.milanote.com` 分享链接，并带有合法的 board ID 和 `p` permission ID。除此之外不能传其他查询参数。
-
-可以使用的组合是：不传筛选参数、`include`、`exclude`、`view`，或 `view + exclude`。`include + exclude` 和 `view + include` 会返回 `400 INVALID_REQUEST`。
-
-## 请求示例
-
-精简搜索：
-
-```bash
-curl --get \
-  --data-urlencode "url=https://app.milanote.com/board-id/shared-view?p=permission-id" \
-  https://your-worker.example/api/search
+```json
+{
+  "url": "https://app.milanote.com/your-board/shared-view?p=your-permission",
+  "scope": "root",
+  "view": "full"
+}
 ```
 
-完整详情：
-
 ```bash
-curl --get \
-  --data-urlencode "url=https://app.milanote.com/board-id/shared-view?p=permission-id" \
-  https://your-worker.example/api/detail
+curl https://YOUR_API_HOST/api/boards/parse \
+  -H 'Content-Type: application/json' \
+  --data '{"url":"https://app.milanote.com/your-board/shared-view?p=your-permission","scope":"root"}'
 ```
 
-标准视图并移除时间戳：
+## 响应与完整性
 
-```bash
-curl --get \
-  --data-urlencode "url=https://app.milanote.com/board-id/shared-view?p=permission-id" \
-  --data-urlencode "view=standard" \
-  --data-urlencode "exclude=**.timestamps" \
-  https://your-worker.example/api/detail
-```
+成功返回 `{ ok: true, data, meta }`。完整字段的 data 符合 MilanoteDocument v1；字段投影可能缺少必需字段。
 
-## 成功响应
+meta 包含：
 
-状态码为 `200`，字段筛选只作用于 `data`：
+- scope：此次读取的范围。
+- complete：是否完成请求的范围。root 模式成功读取根画板即为 true，不表示子画板已展开。
+- unloadedBoardIds：未展开或读取失败的子画板 ID。
+- warnings：SUB_BOARDS_NOT_EXPANDED、BOARD_LIMIT_REACHED、SUB_BOARD_FAILED，附带相关 boardIds。
+- upstreamRequests：实际上游请求数。
+- timings：permission、boards、parse、total，单位毫秒。
+
+root 正常需要一次权限请求、一次画板请求。tree 最多读取 100 个画板，总超时 15 秒。部分子画板失败或达到上限会返回 complete=false；调用方不可把缺失内容当作空画板。超时返回 504。
+
+下面是精简字段、根范围读取的响应示例，包含一个尚未展开的子画板：
+
+<!-- api-response -->
 
 ```json
 {
   "ok": true,
   "data": {
     "version": 1,
-    "source": {
-      "provider": "milanote",
-      "boardId": "board-id"
-    },
+    "source": { "provider": "milanote", "boardId": "root" },
     "board": {
-      "id": "board-id",
+      "id": "root",
       "type": "BOARD",
-      "title": "Example",
-      "children": []
+      "title": "示例画板",
+      "children": [{ "id": "child", "type": "BOARD", "title": "子画板", "children": [] }]
     }
+  },
+  "meta": {
+    "scope": "root",
+    "complete": true,
+    "warnings": [{ "code": "SUB_BOARDS_NOT_EXPANDED", "boardIds": ["child"] }],
+    "unloadedBoardIds": ["child"],
+    "upstreamRequests": 2,
+    "timings": { "permission": 30, "boards": 70, "parse": 2, "total": 102 }
   }
 }
 ```
 
-只有未裁剪的 `full` 数据可以按 `milanoteDocumentSchema` 验证。`compact`、`standard`，以及使用 `include` 或 `exclude` 的结果，都应该按实际选择的字段处理。
+这里 `child.children=[]` 是兼容文档结构的占位。因为 ID 出现在 `unloadedBoardIds` 中，不能据此判断该子画板为空；`complete=true` 只表示本次 root 范围完成。后续请求 `scope=tree` 才会读取其内容。
 
-## 方法和 CORS
+## 响应头
 
-- `GET`：返回 JSON 数据。
-- `HEAD`：返回与 GET 相同的状态和响应头，不返回 body。
-- `OPTIONS`：返回 CORS 预检响应。
-- 其他方法：返回 `405 METHOD_NOT_ALLOWED`，并包含 `Allow`。
-- API 允许跨域只读访问，并暴露 `ETag` 响应头。
+所有数据响应返回 `Cache-Control: no-store`，没有 ETag 或条件缓存。
+`Server-Timing` 提供分阶段耗时；`X-Upstream-Requests` 提供上游请求数；`X-Request-Id` 可用于关联本次请求。
 
-两个端点的方法、CORS、错误和缓存行为相同。未知的 `/api/*` 路由返回 `404 NOT_FOUND`。
+分段耗时和上游请求数在解析成功响应中提供；错误响应仍带请求 ID 和禁止缓存头。`meta.timings.total` 是解析核心的处理时间，不含响应传输；调试台状态栏记录从发送到读取完正文的客户端耗时，两者不必相等。
 
-## 条件请求
+CORS 允许跨域调用，并暴露上述头部。POST 支持 OPTIONS 预检，允许 Content-Type 和 Authorization。其他方法返回 405。
 
-成功响应带有弱 `ETag`，它根据实际返回的数据生成。发送相同请求，并在 `If-None-Match` 中带上匹配的 ETag 时，服务会返回 `304`：
+## 元数据
 
-```bash
-curl -H 'If-None-Match: W/"…"' \
-  'https://your-worker.example/api/detail?url=…&view=standard'
-```
+- `GET /api/openapi.json`：OpenAPI 3.1 定义与请求示例。
+- `GET /api/capabilities`：实例能力。官方返回 version=1、storage=false、cache=false、scheduling=false。
 
-端点默认视图、画板内容和字段选择都会影响 ETag。请把 ETag 和生成它的完整请求一起保存，不要跨查询条件复用。成功响应使用 `public, max-age=60, stale-while-revalidate=300`；失败响应使用 `no-store`。缓存和权限参数的风险见[安全与缓存](/guide/security)。
+错误格式为 `{ ok: false, error: { code, message, stage } }`，详见[错误说明](./errors)。

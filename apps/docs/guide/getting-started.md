@@ -1,75 +1,41 @@
 # 快速开始
 
-## 环境要求
+复制你有权访问的 Milanote 公开分享链接，在调试台选择“根画板”并发送。没有分享权限的画板无法解析。
 
-- Node.js 22.18 或更高版本
-- pnpm 11
+## 发出第一个请求
 
-应用运行时不需要 Milanote 环境变量。每次请求都由调用方提供分享链接。
-
-## 本地启动
-
-```bash
-pnpm install
-pnpm run dev
+```js
+const response = await fetch("https://YOUR_API_HOST/api/boards/parse", {
+  method: "POST",
+  cache: "no-store",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    url: "https://app.milanote.com/your-board/shared-view?p=your-permission",
+    scope: "root",
+    view: "full",
+  }),
+});
+const result = await response.json();
+if (!response.ok || !result.ok) throw new Error(result.error?.message ?? "请求失败");
+console.log(result.data);
 ```
 
-文档位于 `/`，Playground 位于 `/playground`。`pnpm run dev` 会先构建文档，再启动同时提供 Worker API 和 Playground 的开发服务器。
+YOUR_API_HOST 使用你部署的 API 地址，或在调试台“设置”页查看的 API 服务地址。只填服务根地址，不包含 `/api/boards/parse`、查询参数或凭据；示例中的 YOUR_API_HOST 不能直接使用。GitHub Pages 本身不执行 API。
 
-只改文档时，可以使用 `pnpm run docs:dev` 或 `pnpm run docs:preview`。这两个命令只启动 VitePress，不提供 `/playground` 或 Worker API。
+## 选择读取范围
 
-## 获取精简数据
+默认 root 只请求当前画板，保留子画板入口但不展开。tree 读取嵌套内容，画板越多可能越慢。检查 meta.complete、meta.warnings 和 meta.unloadedBoardIds 来判断内容是否齐全。
 
-`/api/search` 默认使用 `compact` 视图，适合列表、索引和搜索结果。把完整分享链接放进唯一的 `url` 参数，并交给 `URLSearchParams` 编码：
+## 只取需要的字段
 
-```ts
-const shareUrl = "https://app.milanote.com/board-id/shared-view?p=permission-id";
-const query = new URLSearchParams({ url: shareUrl });
-const response = await fetch(`/api/search?${query}`);
-const payload = await response.json();
-```
-
-成功响应的外层结构固定，字段筛选只影响 `data`：
+<!-- api-example -->
 
 ```json
 {
-  "ok": true,
-  "data": {
-    "version": 1,
-    "source": {
-      "provider": "milanote",
-      "boardId": "board-id"
-    },
-    "board": {
-      "id": "board-id",
-      "type": "BOARD",
-      "title": "Example",
-      "children": []
-    }
-  }
+  "url": "https://app.milanote.com/your-board/shared-view?p=your-permission",
+  "scope": "root",
+  "include": ["board.id", "board.title", "board.**.richText.plainText"]
 }
 ```
 
-这类精简数据不包含完整 `MilanoteDocument` 的全部字段。
-
-## 获取完整画板
-
-如果要使用完整 Zod 模型，或绘制 Canvas，改用 `/api/detail`：
-
-```ts
-const query = new URLSearchParams({ url: shareUrl });
-const response = await fetch(`/api/detail?${query}`);
-const payload = await response.json();
-```
-
-`/api/detail` 默认返回 `full` 数据。没有使用 `exclude` 时，成功响应里的 `data` 可以交给 `milanoteDocumentSchema` 验证。两个端点都支持[字段选择器](/reference/field-selectors)。
-
-从旧版 `/api/search` 升级的项目，请先阅读 [HTTP API 中的迁移说明](/reference/http-api#http-api)。分享链接和权限参数的处理注意事项见[安全与缓存](/guide/security)。
-
-## 验证项目
-
-```bash
-pnpm run ready
-```
-
-这个命令会依次运行格式检查、lint、类型检查、测试、各 workspace 构建和站点产物验证。
+字段投影在读取和解析之后执行，只减少返回内容。完整参数见 [HTTP API](../reference/http-api)，字段语法见[字段筛选](../reference/field-selectors)。

@@ -63,14 +63,13 @@ Zod 会从规范化对象中移除未知键。上游原始响应则由内部解�
 
 `milanoteDocumentSchema` 只描述完整的规范化文档，不描述任意字段筛选结果：
 
-| HTTP 数据                              | 能否按 `MilanoteDocument` 验证 |
-| -------------------------------------- | ------------------------------ |
-| `/api/detail` 默认响应                 | 可以                           |
-| 任一端点显式 `view=full`，且未排除字段 | 可以                           |
-| `/api/search` 默认 `compact` 响应      | 不可以                         |
-| `view=compact` / `view=standard`       | 不可以                         |
-| 任意 `include` / `exclude` 结果        | 不保证                         |
+| HTTP 数据                             | 能否按 `MilanoteDocument` 验证 |
+| ------------------------------------- | ------------------------------ |
+| `/api/boards/parse` 默认响应的 `data` | 可以                           |
+| 显式 `view=full`，且未排除字段        | 可以                           |
+| `view=compact` / `view=standard`      | 不可以                         |
+| 任意 `include` / `exclude` 结果       | 不保证                         |
 
-筛选后的成功响应仍是 `{ ok: true, data: object }`，但 `data` 要按实际字段处理。需要验证时，为自己的筛选条件定义更小的 schema；不要为了套用完整 schema 补造缺失字段。
+筛选后的成功响应仍是 `{ ok: true, data: object, meta }`，但 `data` 要按实际字段处理。需要验证时，为自己的筛选条件定义更小的 schema；不要为了套用完整 schema 补造缺失字段。
 
-字段筛选发生在 Worker 层。Parser SDK 始终返回完整 `MilanoteDocument`。
+字段筛选发生在 Worker 和 Linux 共用的 API 层。Parser SDK 返回所选读取范围的完整字段模型；未读取的子画板必须结合诊断结果判断，不能当作空画板。

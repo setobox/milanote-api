@@ -1,0 +1,5 @@
+{
+  "extends": "../../packages/milanote-parser/tsconfig.json",
+  "compilerOptions": { "lib": ["ES2023", "DOM", "DOM.Iterable"] },
+  "include": ["src"]
+}

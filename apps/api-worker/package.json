@@ -1,0 +1,21 @@
+{
+  "name": "@milanote-api/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp exec wrangler dev --port 8787",
+    "build": "vp run typecheck && vp exec wrangler deploy --dry-run --outdir dist",
+    "typecheck": "vp exec tsc --noEmit",
+    "deploy": "vp exec wrangler deploy"
+  },
+  "dependencies": {
+    "@milanote-api/api": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

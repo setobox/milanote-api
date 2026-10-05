@@ -1,41 +1,23 @@
-# HTTP 错误码
+# 错误与排查
 
-失败响应使用同一结构，并带有 `Cache-Control: no-store`：
+错误格式：`{ ok: false, error: { code, message, stage } }`。
 
-```json
-{
-  "ok": false,
-  "error": {
-    "code": "INVALID_SHARE_URL",
-    "message": "The share URL is not a valid Milanote public board link."
-  }
-}
-```
+| HTTP | code                                                | 下一步                                |
+| ---- | --------------------------------------------------- | ------------------------------------- |
+| 400  | INVALID_REQUEST                                     | 检查 JSON、分享链接、scope 和参数组合 |
+| 400  | INVALID_FIELD_SELECTOR                              | 检查字段路径和通配符                  |
+| 403  | UPSTREAM_ACCESS_DENIED                              | 确认分享已开启且具备访问权限          |
+| 404  | BOARD_NOT_FOUND                                     | 确认画板仍存在                        |
+| 404  | NOT_FOUND                                           | 检查 API 路径                         |
+| 405  | METHOD_NOT_ALLOWED                                  | 解析接口使用 POST                     |
+| 413  | PAYLOAD_TOO_LARGE                                   | 请求体不能超过 32 KiB                 |
+| 415  | UNSUPPORTED_MEDIA_TYPE                              | 设置 Content-Type: application/json   |
+| 502  | UPSTREAM_REQUEST_FAILED / INVALID_UPSTREAM_RESPONSE | 稍后重试；检查上游是否变化            |
+| 504  | UPSTREAM_TIMEOUT                                    | 改用 root 或减少递归读取需求          |
+| 500  | INTERNAL_ERROR                                      | 使用请求 ID 和脱敏日志定位            |
 
-字段选择器报错时，`error` 还可能包含 `field: "include"` 或 `field: "exclude"`。这个字段是可选的，其他错误通常不会返回它。
+stage 区分 request、permission、boards、parse。服务端不会返回输入分享链接、短期令牌或上游原始错误正文。
 
-| HTTP  | code                     | 含义                                                                   |
-| ----- | ------------------------ | ---------------------------------------------------------------------- |
-| `400` | `INVALID_REQUEST`        | 查询参数缺失、重复、过长、包含未知参数，或筛选参数组合冲突             |
-| `400` | `INVALID_SHARE_URL`      | URL 不是合法的 Milanote 公开分享链接                                   |
-| `400` | `INVALID_FIELD_SELECTOR` | `include`/`exclude` 为空、语法错误、未知、过多、过深，或请求了敏感字段 |
-| `404` | `BOARD_NOT_FOUND`        | 上游确认画板不存在                                                     |
-| `404` | `NOT_FOUND`              | API 路由不存在                                                         |
-| `405` | `METHOD_NOT_ALLOWED`     | 端点不支持该 HTTP 方法                                                 |
-| `502` | `UPSTREAM_ERROR`         | Milanote 暂时不可达、拒绝访问，或返回的数据无法解析                    |
-| `500` | `INTERNAL_ERROR`         | 未预期的服务端错误                                                     |
+tree 部分失败时可能仍然返回 200，但 meta.complete=false。检查 warnings，不要将缺失子画板当作空内容。官方接口不提供旧快照回退。
 
-例如，选择了未知字段：
-
-```json
-{
-  "ok": false,
-  "error": {
-    "code": "INVALID_FIELD_SELECTOR",
-    "message": "Unknown field selector: board.password",
-    "field": "exclude"
-  }
-}
-```
-
-`include + exclude`、`view + include` 等冲突属于 `INVALID_REQUEST`，不是字段选择器错误。为避免泄露信息，错误响应不会回显输入链接、permission ID、token 或上游详情。
+请求耗时可在 Server-Timing 和 meta.timings 中查看。权限与画板阶段慢需要检查上游；字段精简不会缩短这些阶段。

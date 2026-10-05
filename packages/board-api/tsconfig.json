@@ -1,0 +1,1 @@
+{ "extends": "../milanote-parser/tsconfig.json", "include": ["src", "tests", "vite.config.ts"] }
