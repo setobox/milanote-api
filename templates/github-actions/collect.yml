@@ -1,0 +1,41 @@
+name: Collect Milanote
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
+permissions:
+  contents: read
+concurrency:
+  group: milanote-collector
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      BOARD_URL: ${{ secrets.BOARD_URL }}
+      API_TOKEN: ${{ secrets.API_TOKEN }}
+      WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+      WEBHOOK_TOKEN: ${{ secrets.WEBHOOK_TOKEN }}
+      STORAGE_ENABLED: ${{ vars.STORAGE_ENABLED || 'false' }}
+      COLLECT_CRON: ${{ github.event.schedule || '*/5 * * * *' }}
+      BOARD_SCOPE: root
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @milanote-api/actions-collector collect
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && env.STORAGE_ENABLED == 'true' }}
+        with:
+          name: milanote-snapshot-${{ github.run_id }}
+          path: apps/actions-collector/output/latest.json
+          if-no-files-found: ignore
+          retention-days: 7

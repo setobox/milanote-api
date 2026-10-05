@@ -1,0 +1,16 @@
+{
+  "host": "127.0.0.1",
+  "port": 8787,
+  "lockDirectory": "./data/locks",
+  "storage": { "enabled": false, "path": "./data/snapshots.sqlite", "tokenEnv": "SNAPSHOT_TOKEN" },
+  "jobs": [
+    {
+      "id": "daily-board",
+      "urlEnv": "BOARD_URL",
+      "scope": "root",
+      "cron": "* * * * *",
+      "webhookUrlEnv": "WEBHOOK_URL",
+      "webhookTokenEnv": "WEBHOOK_TOKEN"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+[Unit]
+Description=Collect Milanote snapshot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=milanote
+WorkingDirectory=/opt/milanote-api
+EnvironmentFile=/etc/milanote-api.env
+Environment=MILANOTE_CONFIG=/etc/milanote-api.json
+ExecStart=/usr/bin/env pnpm --filter @milanote-api/self-hosted collect daily-board
+TimeoutStartSec=90
+UMask=0077
+NoNewPrivileges=true

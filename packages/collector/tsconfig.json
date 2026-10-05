@@ -1,0 +1,5 @@
+{
+  "extends": "../milanote-parser/tsconfig.json",
+  "compilerOptions": { "lib": ["es2023", "DOM"] },
+  "include": ["src", "tests"]
+}

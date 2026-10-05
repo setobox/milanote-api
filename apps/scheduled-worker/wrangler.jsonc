@@ -1,0 +1,15 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "my-milanote-collector",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-22",
+  "triggers": { "crons": ["* * * * *"] },
+  "vars": {
+    "API_BASE_URL": "https://YOUR_API_HOST",
+    "BOARD_SCOPE": "root",
+    "STORAGE_ENABLED": "false",
+  },
+  "observability": { "enabled": false },
+  // Optional storage: create your own bucket, then add
+  // "r2_buckets": [{ "binding": "SNAPSHOTS", "bucket_name": "YOUR_BUCKET_NAME" }]
+}

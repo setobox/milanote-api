@@ -1,0 +1,7 @@
+# Use cron implementations supporting CRON_TZ, or set the server timezone to UTC.
+CRON_TZ=UTC
+SHELL=/bin/sh
+# Environment file must contain shell-compatible KEY=value assignments and have mode 600.
+* * * * * cd /opt/milanote-api && set -a && . /etc/milanote-api.env && set +a && MILANOTE_CONFIG=/etc/milanote-api.json pnpm --filter @milanote-api/self-hosted collect daily-board
+# Daily 09:00 in Beijing: 0 1 * * *
+# Monday 09:00 in Beijing: 0 1 * * MON

@@ -1,0 +1,27 @@
+{
+  "name": "@milanote-api/self-hosted",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/cli.ts serve",
+    "collect": "node src/cli.ts collect",
+    "schedule": "node src/cli.ts schedule",
+    "test": "vp test",
+    "build": "vp exec tsc --noEmit"
+  },
+  "dependencies": {
+    "@milanote-api/api": "workspace:*",
+    "@milanote-api/collector": "workspace:*",
+    "@milanote-api/parser": "workspace:*",
+    "better-sqlite3": "catalog:",
+    "fastify": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

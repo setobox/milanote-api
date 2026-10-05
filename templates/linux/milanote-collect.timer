@@ -1,0 +1,11 @@
+[Unit]
+Description=Collect Milanote every 60 seconds
+
+[Timer]
+OnCalendar=*-*-* *:*:00 UTC
+Persistent=true
+AccuracySec=1s
+Unit=milanote-collect.service
+
+[Install]
+WantedBy=timers.target

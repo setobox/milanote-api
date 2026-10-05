@@ -1,0 +1,18 @@
+[Unit]
+Description=Milanote realtime API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=milanote
+WorkingDirectory=/opt/milanote-api
+EnvironmentFile=/etc/milanote-api.env
+Environment=MILANOTE_CONFIG=/etc/milanote-api.json
+ExecStart=/usr/bin/env pnpm --filter @milanote-api/self-hosted start
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
