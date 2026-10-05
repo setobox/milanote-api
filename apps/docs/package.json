@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vitepress dev .",
-    "build": "vitepress build .",
+    "build": "node ../../tools/export-templates.mjs && vitepress build .",
     "preview": "vitepress preview ."
   },
   "devDependencies": {

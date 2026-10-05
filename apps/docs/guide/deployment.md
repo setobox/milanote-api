@@ -1,70 +1,77 @@
-# Cloudflare 部署
+# 部署指南
 
-项目会构建为一个 Cloudflare Worker 部署：
+自动更新模板：[GitHub Actions](./actions)、[Workers Cron 与 R2](./scheduled-worker)、[Linux、systemd 与 SQLite](./linux)。每套方案均支持手动运行、Webhook 和可选存储。
 
-| 路径          | 内容                                 |
-| ------------- | ------------------------------------ |
-| `/`           | VitePress 文档                       |
-| `/playground` | React Playground                     |
-| `/api/search` | 默认返回 `compact` 数据的 Worker API |
-| `/api/detail` | 默认返回 `full` 数据的 Worker API    |
+官方站点分为静态网页与无状态 API 两部分。GitHub Pages 提供文档和调试台，Cloudflare Worker 只处理实时解析。官方不存储或缓存用户数据，不运行定时采集。
 
-## 构建
+## 官方 Worker
 
 ```bash
+pnpm install
+pnpm --filter @milanote-api/worker run build
+pnpm --filter @milanote-api/worker run deploy
+```
+
+Worker 不绑定数据库、KV、R2 或 Cron Trigger。部署需要自己的 CLOUDFLARE_API_TOKEN 和 CLOUDFLARE_ACCOUNT_ID。build 只执行类型检查与 dry-run，不发布。
+
+## 静态站点与 GitHub Pages
+
+构建时设置：
+
+```bash
+export PUBLIC_BASE_PATH=/milanote-api/
+export VITE_API_BASE_URL=https://YOUR_API_HOST
 pnpm run build
+pnpm run verify:site
 ```
 
-Playground 的 `site:build` 任务依赖 `@milanote-api/docs#build`。构建时，Vite 会把 `apps/docs/.vitepress/dist` 复制到 `apps/playground/dist/client`，并在同一目录生成 `playground/index.html` 和 `playground/assets/*`。
+PUBLIC_BASE_PATH 必须与 Pages 仓库路径相同；自定义域名或用户主页仓库使用 /。Windows PowerShell 使用 `$env:PUBLIC_BASE_PATH = "/milanote-api/"` 设置环境变量。
 
-## Wrangler 路由
+静态产物为 apps/playground/dist。站点根路径跳转到 `docs/` 首页，指南在 `guide/`、参考在 `reference/`，调试台在 `playground/`。API 地址是公开构建配置，不能包含 Token。在仓库 Variables 中设置 `API_BASE_URL`（CI 注入为 `VITE_API_BASE_URL`）；Pages 发布源选择 GitHub Actions。设置 `DEPLOY_WORKER=true` 才会自动发布 Worker，并配置上述两个 Cloudflare Secrets。
 
-关键配置：
+CI 会检查格式、类型、测试、文档示例、构建与站内链接。Pages 与 Worker 分别发布，静态站点不包含任何 Worker 密钥。
 
-```json
-{
-  "assets": {
-    "run_worker_first": ["/api/*"],
-    "not_found_handling": "404-page",
-    "html_handling": "drop-trailing-slash"
-  }
-}
-```
+CI 默认按仓库名称生成子路径；自定义域名或用户主页仓库可设置仓库变量 `PUBLIC_BASE_PATH=/`。没有 `API_BASE_URL` 时只验证构建，不发布 Pages。自动发布只在 main 分支 push 且验证通过后执行，PR 不会部署。
 
-- `run_worker_first` 让所有 `/api/*` 请求先进入 Worker，不会被同名静态文件截获。
-- `404-page` 使用 VitePress 生成的 `404.html`。
-- `drop-trailing-slash` 会把 `/playground/` 等地址规范化为无尾斜杠，同时仍可从目录中的 `index.html` 提供内容。
+## 本地开发
 
-可参考 Cloudflare 的 [HTML handling](https://developers.cloudflare.com/workers/static-assets/routing/advanced/html-handling/) 和 [Static Assets](https://developers.cloudflare.com/workers/static-assets/) 文档。
-
-## 部署命令
+先检查是否已有服务运行。需要完整联调时在两个终端分别执行：
 
 ```bash
-pnpm run deploy
-```
-
-应用运行时不需要环境变量。CI 部署需要 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。
-
-## 本地服务
-
-```bash
+pnpm run dev:api
 pnpm run dev
 ```
 
-这个命令同时提供文档、`/playground` 和两个 API 端点。`pnpm run docs:dev` 与 `pnpm run docs:preview` 只运行 VitePress；在它们启动的服务中访问 `/playground` 会得到文档 404。
+API 监听 8787，Vite 将 /api 转发到本地服务。文档单独开发可用 pnpm run docs:dev。根路径自动跳转到 `/docs/` 文档首页；配置仓库子路径时会保留该前缀。调试台可在设置页改用其他 API，跨域服务需允许 POST、Content-Type 和 Authorization。
 
-## 产物检查
+`pnpm run dev` 启动前会构建一次文档。编辑 Markdown 后，需要重新执行 `pnpm --filter @milanote-api/docs build` 才会更新 5173 上的文档；需要文档热更新时使用独立的 `pnpm run docs:dev`。
 
-```text
-apps/playground/dist/client/
-├─ index.html
-├─ 404.html
-├─ assets/
-├─ reference/
-│  └─ field-selectors.html
-└─ playground/
-   ├─ index.html
-   └─ assets/
-```
+## 跨域连接与认证
 
-`pnpm run verify:site` 会检查文档首页、404、字段选择器页、Playground 入口和内部链接，并确认指向 `/playground`、`/api/search`、`/api/detail` 的链接使用整页导航。
+调试台“设置”中的 API 服务地址只填写服务根地址，例如 `https://YOUR_API_HOST`，不包含 `/api/boards/parse`、查询参数或令牌。Pages 的仓库子路径只影响静态站点；独立 Worker API 仍使用 `/api/boards/parse`。
+
+Worker 与 Linux 的实时接口允许 `Access-Control-Allow-Origin: *`，预检允许 `Content-Type`、`Authorization` 和对应请求方法，并暴露 `Server-Timing`、`X-Upstream-Requests`、`X-Request-Id`。反向代理需同时放行 OPTIONS 和实际请求，并保留这些响应头；否则直接用 cURL 可成功，浏览器仍可能报告网络错误。
+
+实时解析服务自身不校验 Bearer Token。调试台的 Token 字段用于连接用户增加了认证的网关或反向代理；填写 Token 不会自动为公开 API 加上访问控制。Linux 快照接口有独立的 Token 校验，且不开放跨域读取。需要限制可调用来源时在自己的代理设置允许的 Origin，CORS 本身不代替认证。
+
+## 采集结果与 Webhook
+
+三种采集方式使用相同的脱敏摘要：
+
+| 字段                      | 含义                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------- |
+| `runId` / `jobId`         | 本次执行 ID / 任务 ID；一次执行的所有重试沿用 runId                           |
+| `startedAt` / `elapsedMs` | UTC 开始时间 / 总耗时（毫秒）                                                 |
+| `status`                  | `success` 读取完整；`incomplete` 读取不完整；`failed` 读取失败或 API 响应无效 |
+| `storage` / `webhook`     | `disabled` 未配置；`skipped` 未执行；`success` 成功；`failed` 输出失败        |
+| `webhookAttempts`         | 实际推送次数，0–3 次                                                          |
+
+例如 `status=success, storage=success, webhook=failed` 表示已取得并保存完整数据，但推送失败，不能仅按 `status` 判断整个任务成功。Actions 和 Linux 此时返回非零退出码；Worker 手动入口返回 502，计划触发记录失败。读取失败时两种输出均跳过；读取不完整时只允许推送，不覆盖完整快照。存储关闭并不关闭 Webhook，二者可单独启用或同时启用。
+
+Webhook 使用 HTTP POST、`Content-Type: application/json`，配置推送 Token 后附带 `Authorization: Bearer ...`。正文为 `{ runId, jobId, capturedAt, result }`，其中 `result` 是带 `ok`、`data`、`meta` 的 API 成功响应；快照存储使用同样的结构。`capturedAt` 为本次执行开始的 UTC 时间。
+
+接收方以 2xx 确认接收，每次请求超时为 10 秒；网络错误或非 2xx 最多重试两次，重试前分别等待 250、500 毫秒。不跟随重定向。`X-Run-Id` 与正文 `runId` 一致，接收方应按该 ID 去重；单次执行结束后不会再后台补发。Webhook 会收到画板数据，请在自己的接收端检查认证与 `result.meta.complete`，不要把正文写入公开日志。
+
+## 自部署扩展
+
+用户自己的自动更新与存储独立于官方站点。每个部署环境的模板与教程随对应功能一起提供。分享链接通过环境变量或 Secrets 配置，官方服务不会保存定时任务。

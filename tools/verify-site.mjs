@@ -1,95 +1,68 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, relative, sep } from "node:path";
-
-const outputRoot = join(process.cwd(), "apps", "playground", "dist", "client");
-const requiredFiles = [
+const root = join(process.cwd(), "apps/playground/dist");
+const base = process.env.PUBLIC_BASE_PATH ?? "/";
+for (const file of [
   "index.html",
+  "docs/index.html",
   "404.html",
-  join("playground", "index.html"),
-  join("reference", "field-selectors.html"),
-  join("reference", "http-api.html"),
-];
-const workerRoutes = new Set(["/api/detail", "/api/search"]);
-
-for (const file of requiredFiles) {
-  if (!existsSync(join(outputRoot, file))) {
-    throw new Error(`Missing site artifact: ${file}`);
-  }
+  "playground/index.html",
+  "reference/http-api.html",
+  "reference/field-selectors.html",
+]) {
+  if (!existsSync(join(root, file))) throw new Error(`Missing site artifact: ${file}`);
 }
-
-function collectHtml(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) return collectHtml(path);
-    return extname(entry.name) === ".html" ? [path] : [];
-  });
-}
-
-function assetExists(pathname) {
-  const cleanPath = decodeURIComponent(pathname).replace(/^\/+/, "");
-  if (cleanPath === "") return existsSync(join(outputRoot, "index.html"));
-
-  const candidates = [cleanPath, `${cleanPath}.html`, join(cleanPath, "index.html")];
-  return candidates.some((candidate) => existsSync(join(outputRoot, candidate)));
-}
-
-const brokenLinks = [];
-const interceptedFullPageLinks = [];
-for (const htmlFile of collectHtml(outputRoot)) {
-  const html = readFileSync(htmlFile, "utf8");
-  const relativeHtmlFile = relative(outputRoot, htmlFile);
-  const route = `/${relative(outputRoot, htmlFile).split(sep).join("/")}`.replace(
-    /(?:index)?\.html$/,
-    "",
+function html(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory()
+      ? html(join(directory, entry.name))
+      : extname(entry.name) === ".html"
+        ? [join(directory, entry.name)]
+        : [],
   );
-
-  for (const match of html.matchAll(/<a\b[^>]*\bhref="([^"]+)"[^>]*>/g)) {
-    const href = match[1];
-    if (href === undefined) continue;
-
-    const target = new URL(href, `https://site.invalid${route || "/"}`);
-    const requiresFullPageNavigation =
-      (target.pathname === "/playground" &&
-        relativeHtmlFile !== join("playground", "index.html")) ||
-      workerRoutes.has(target.pathname);
-
-    if (requiresFullPageNavigation && !/\btarget="_self"/.test(match[0])) {
-      interceptedFullPageLinks.push(`${relativeHtmlFile} -> ${href}`);
-    }
-  }
-
-  for (const match of html.matchAll(/href="([^"]+)"/g)) {
-    const href = match[1];
-    if (
-      href === undefined ||
-      href.startsWith("#") ||
-      href.startsWith("mailto:") ||
-      href.startsWith("http:") ||
-      href.startsWith("https:")
-    ) {
+}
+const failures = [];
+const files = html(root);
+const anchors = new Map(
+  files.map((file) => [
+    file,
+    new Set([...readFileSync(file, "utf8").matchAll(/\bid="([^"]+)"/g)].map((match) => match[1])),
+  ]),
+);
+for (const file of files) {
+  const source = readFileSync(file, "utf8");
+  const route = base + relative(root, file).split(sep).join("/");
+  for (const match of source.matchAll(
+    /<(a|script|link|img)\b[^>]*?(?:href|src)="([^"]+)"[^>]*>/g,
+  )) {
+    const [tag, kind, encoded] = match;
+    const href = encoded.replaceAll("&amp;", "&");
+    if (/^(?:https?:|mailto:|data:|javascript:)/.test(href)) continue;
+    const target = new URL(href, `https://site.invalid${route}`);
+    if (!target.pathname.startsWith(base)) {
+      failures.push(`${route}: outside base ${href}`);
       continue;
     }
-
-    const target = new URL(href, `https://site.invalid${route || "/"}`);
-    if (workerRoutes.has(target.pathname)) continue;
-    if (!assetExists(target.pathname)) {
-      brokenLinks.push(`${relative(outputRoot, htmlFile)} -> ${href}`);
+    const path = decodeURIComponent(target.pathname.slice(base.length)).replace(/\/$/, "");
+    const resolved = ["", ".html", "/index.html"]
+      .map((suffix) => join(root, path + suffix))
+      .find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
+    if (!resolved) {
+      failures.push(`${route} -> ${href}`);
+    } else if (
+      target.hash &&
+      anchors.has(resolved) &&
+      !anchors.get(resolved).has(decodeURIComponent(target.hash.slice(1)))
+    ) {
+      failures.push(`${route}: missing anchor ${href}`);
     }
+    if (kind === "a" && /\/playground\/?$/.test(target.pathname) && !/target="_self"/.test(tag))
+      failures.push(`${route}: playground navigation must use target=_self`);
   }
 }
+if (failures.length) throw new Error(failures.join("\n"));
+console.log(`Verified ${files.length} pages, links, anchors and assets with base ${base}`);
 
-if (brokenLinks.length > 0) {
-  throw new Error(`Broken internal site links:\n${brokenLinks.join("\n")}`);
-}
-
-if (interceptedFullPageLinks.length > 0) {
-  throw new Error(
-    `VitePress would intercept runtime route links:\n${[...new Set(interceptedFullPageLinks)].join(
-      "\n",
-    )}`,
-  );
-}
-
-console.log(
-  `Verified ${collectHtml(outputRoot).length} HTML files, required routes, full-page runtime links, and internal links.`,
-);
+const redirect = readFileSync(join(root, "index.html"), "utf8");
+if (!redirect.includes(`content="0;url=${base}docs/"`))
+  throw new Error("Root must redirect to the documentation home using the deployment base");

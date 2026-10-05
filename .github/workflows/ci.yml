@@ -1,78 +1,81 @@
 name: CI
-
 on:
   workflow_call: {}
   pull_request:
   push:
-    branches:
-      - main
-
+    branches: [main]
 permissions:
   contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   verify:
-    name: Verify
+    name: Code, docs and deployment checks
     runs-on: ubuntu-latest
+    env:
+      PUBLIC_BASE_PATH: ${{ vars.PUBLIC_BASE_PATH || format('/{0}/', github.event.repository.name) }}
+      VITE_API_BASE_URL: ${{ vars.API_BASE_URL || 'http://localhost:8787' }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+      - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: "24"
           cache: true
           run-install: false
-
-      - name: Install dependencies
-        run: vp install --frozen-lockfile
-
-      - name: Check formatting, lint, and types
-        run: vp check
-
-      - name: Run tests
-        run: vp run -r test
-
-      - name: Build all workspaces
-        run: vp run build
-
-  deploy:
-    name: Deploy to Cloudflare
+      - run: pnpm install --frozen-lockfile
+      - name: Test, validate examples, build docs and check static links
+        run: pnpm run ready
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-site
+          path: apps/playground/dist
+  pages:
+    name: Publish static docs and workbench
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.API_BASE_URL != ''
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-site
+          path: site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
+  worker:
+    name: Publish stateless Worker API
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_WORKER == 'true'
     needs: verify
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
         with:
           version: 11.15.1
-
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
+      - uses: voidzero-dev/setup-vp@v1
         with:
           node-version: "24"
           cache: true
           run-install: false
-
-      - name: Install dependencies
-        run: vp install --frozen-lockfile
-
-      - name: Build all workspaces
-        run: vp run build
-
-      - name: Deploy Worker and playground
-        uses: cloudflare/wrangler-action@v3
+      - run: pnpm install --frozen-lockfile
+      - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: apps/playground
+          workingDirectory: apps/api-worker
           packageManager: pnpm
           command: deploy
