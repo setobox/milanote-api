@@ -32,6 +32,17 @@ dist-ssr
 *.sw?
 
 # AI assistant instructions and local configuration
+[Aa][Gg][Ee][Nn][Tt][Ss].md
+[Aa][Gg][Ee][Nn][Tt][Ss].*.md
+[Cc][Ll][Aa][Uu][Dd][Ee].md
+[Gg][Ee][Mm][Ii][Nn][Ii].md
+apps/actions-collector/output/
+apps/docs/public/templates/
+apps/self-hosted/data/
+apps/self-hosted/config.json
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 
 .agents/
 .claude/

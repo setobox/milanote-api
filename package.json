@@ -4,14 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "ready": "vp check && vp run -r test && vp run build && vp run verify:site",
+    "ready": "vp check && vp run -r test && vp run verify:examples && vp run build && vp run verify:site",
     "dev": "vp run @milanote-api/docs#build && vp run @milanote-api/playground#dev",
     "test": "vp run -r test",
-    "build": "vp run @milanote-api/parser#build && vp run @milanote-api/playground#build",
-    "deploy": "vp run @milanote-api/playground#deploy",
+    "build": "vp run @milanote-api/parser#build && vp run @milanote-api/api#build && vp run @milanote-api/playground#build && vp run @milanote-api/worker#build && vp run @milanote-api/collector#build && vp run @milanote-api/actions-collector#build && vp run @milanote-api/scheduled-worker#build && vp run @milanote-api/self-hosted#build",
+    "deploy": "vp run @milanote-api/worker#deploy",
     "docs:dev": "vp run @milanote-api/docs#dev",
     "docs:preview": "vp run @milanote-api/docs#preview",
-    "verify:site": "vp exec node tools/verify-site.mjs"
+    "verify:site": "vp exec node tools/verify-site.mjs",
+    "dev:api": "vp run @milanote-api/worker#dev",
+    "verify:examples": "vp exec node tools/verify-examples.ts"
   },
   "devDependencies": {
     "typescript": "catalog:",
