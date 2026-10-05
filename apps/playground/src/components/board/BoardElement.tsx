@@ -1,6 +1,7 @@
 import type { MilanoteNode } from "@milanote-api/parser";
 import { ExternalLink, FileText, ImageIcon } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { useContext, useId, useState, type ReactNode } from "react";
+import { BoardLoadContext } from "./BoardLoadContext.ts";
 
 import {
   formatCompactDate,
@@ -69,6 +70,7 @@ function InteractiveCount({
 }
 
 export function BoardElement({ depth = 0, node }: BoardElementProps) {
+  const unloaded = useContext(BoardLoadContext);
   const [hasFocusWithin, setHasFocusWithin] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const interactiveCountDescriptionId = useId();
@@ -78,6 +80,13 @@ export function BoardElement({ depth = 0, node }: BoardElementProps) {
   const typeLabel = getNodeTypeLabel(node.type);
   const imageUrl = getImageUrl(node);
   const linkUrl = getLinkUrl(node);
+  if (node.type === "BOARD" && unloaded.includes(node.id))
+    return (
+      <article className="glass-board-item rounded-lg border p-4">
+        <strong>{label}</strong>
+        <p className="mt-2 text-sm text-muted-foreground">子画板未展开</p>
+      </article>
+    );
   const showInteractiveCount = hasFocusWithin || isHovered;
 
   switch (node.type) {

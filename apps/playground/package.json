@@ -5,16 +5,21 @@
   "type": "module",
   "scripts": {
     "dev": "vp dev",
-    "typecheck": "vp exec tsc --noEmit -p tsconfig.app.json && vp exec tsc --noEmit -p tsconfig.worker.json && vp exec tsc --noEmit -p tsconfig.node.json",
+    "typecheck": "vp exec tsc --noEmit -p tsconfig.app.json && vp exec tsc --noEmit -p tsconfig.node.json",
     "build": "vp run site:build",
     "preview": "vp run build && vp preview",
-    "test": "vp test",
-    "deploy": "vp run build && vp exec wrangler deploy"
+    "test": "vp test"
   },
   "dependencies": {
+    "@codemirror/lang-json": "catalog:",
+    "@codemirror/lint": "catalog:",
+    "@codemirror/state": "catalog:",
+    "@codemirror/theme-one-dark": "catalog:",
+    "@milanote-api/api": "workspace:*",
     "@milanote-api/parser": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
+    "codemirror": "catalog:",
     "lucide-react": "catalog:",
     "radix-ui": "catalog:",
     "react": "catalog:",
@@ -23,7 +28,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@testing-library/dom": "catalog:",
     "@testing-library/jest-dom": "catalog:",
@@ -37,7 +41,6 @@
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plus": "catalog:",
-    "wrangler": "catalog:"
+    "vite-plus": "catalog:"
   }
 }

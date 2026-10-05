@@ -9,9 +9,7 @@
       (() => {
         try {
           const preference = localStorage.getItem("vitepress-theme-appearance");
-          const isDark =
-            preference === "dark" ||
-            (preference !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          const isDark = preference !== "light";
           document.documentElement.classList.toggle("dark", isDark);
           document.documentElement.dataset.theme = isDark ? "dark" : "light";
           document
@@ -22,7 +20,7 @@
         }
       })();
     </script>
-    <title>Milanote API Playground</title>
+    <title>Milanote API 调试台</title>
   </head>
   <body>
     <div id="root"></div>

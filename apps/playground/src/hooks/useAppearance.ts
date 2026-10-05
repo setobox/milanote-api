@@ -22,9 +22,9 @@ function getSystemAppearance(): ResolvedAppearance {
 function getInitialAppearance(): Appearance {
   try {
     const stored = window.localStorage.getItem(appearanceStorageKey);
-    return isAppearance(stored) ? stored : "auto";
+    return isAppearance(stored) ? stored : "dark";
   } catch {
-    return "auto";
+    return "dark";
   }
 }
 
