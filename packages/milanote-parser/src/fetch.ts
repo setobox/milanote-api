@@ -3,7 +3,12 @@ import { isRecord, readNonEmptyString, readString, type UnknownRecord } from "./
 import { parseMilanoteBoardResponse } from "./parse.ts";
 import type { MilanoteDocument } from "./schemas.ts";
 import { parseMilanoteShareUrl } from "./share-url.ts";
-import type { FetchMilanoteBoardOptions, MilanoteFetch } from "./types.ts";
+import type {
+  BoardDiagnostics,
+  FetchStage,
+  FetchMilanoteBoardOptions,
+  MilanoteFetch,
+} from "./types.ts";
 
 const MILANOTE_ORIGIN = "https://app.milanote.com";
 const BOARD_BATCH_SIZE = 50;
@@ -30,6 +35,8 @@ async function requestJson(
   try {
     response = await fetcher(url, {
       method: "GET",
+      cache: "no-store",
+      redirect: "error",
       headers: {
         accept: "application/json",
       },
@@ -40,9 +47,16 @@ async function requestJson(
   }
 
   if (!response.ok) {
-    throw new MilanoteParserError("UPSTREAM_REQUEST_FAILED", {
-      status: response.status,
-    });
+    throw new MilanoteParserError(
+      response.status === 401 || response.status === 403
+        ? "UPSTREAM_ACCESS_DENIED"
+        : response.status === 404
+          ? "BOARD_NOT_FOUND"
+          : "UPSTREAM_REQUEST_FAILED",
+      {
+        status: response.status,
+      },
+    );
   }
 
   try {
@@ -175,6 +189,7 @@ async function fetchBoardTree(
   token: string,
   maxBoards: number,
   signal: AbortSignal,
+  diagnostics: BoardDiagnostics,
 ): Promise<MergedBoardResponse> {
   const merged = createMergedResponse();
   const queued = new Set<string>([rootBoardId]);
@@ -188,33 +203,56 @@ async function fetchBoardTree(
 
     let response: unknown;
     try {
+      diagnostics.upstreamRequests++;
       response = await requestJson(fetcher, makeBoardUrl(batch, token), signal);
     } catch (error: unknown) {
       if (batch.includes(rootBoardId) || signal.aborted) throw error;
+      diagnostics.complete = false;
+      diagnostics.warnings.push({ code: "SUB_BOARD_FAILED", boardIds: batch });
+      diagnostics.unloadedBoardIds.push(...batch);
       continue;
     }
 
     mergeBoardResponse(merged, response);
+    const failed = batch.filter((id) => id !== rootBoardId && merged.childrenReturned[id] !== true);
+    if (failed.length) {
+      diagnostics.complete = false;
+      diagnostics.warnings.push({ code: "SUB_BOARD_FAILED", boardIds: failed });
+      diagnostics.unloadedBoardIds.push(...failed);
+    }
 
     for (const boardId of discoverBoardIds(isRecord(response) ? response.elements : undefined)) {
-      if (
-        !visited.has(boardId) &&
-        !queued.has(boardId) &&
-        visited.size + pending.length < maxBoards
-      ) {
+      if (!visited.has(boardId) && !queued.has(boardId)) {
         queued.add(boardId);
-        pending.push(boardId);
+        if (diagnostics.scope === "root" || visited.size + pending.length >= maxBoards) {
+          diagnostics.unloadedBoardIds.push(boardId);
+          if (diagnostics.scope === "tree") diagnostics.complete = false;
+        } else {
+          pending.push(boardId);
+        }
       }
     }
   }
 
+  const omitted = diagnostics.unloadedBoardIds.filter((id) => !visited.has(id));
+  if (omitted.length)
+    diagnostics.warnings.push({
+      code: diagnostics.scope === "root" ? "SUB_BOARDS_NOT_EXPANDED" : "BOARD_LIMIT_REACHED",
+      boardIds: omitted,
+    });
+
   return merged;
 }
 
-export async function fetchMilanoteBoard(
+export interface BoardFetchResult {
+  document: MilanoteDocument;
+  diagnostics: BoardDiagnostics;
+}
+
+export async function fetchMilanoteBoardWithDiagnostics(
   shareUrl: string,
   options: FetchMilanoteBoardOptions = {},
-): Promise<MilanoteDocument> {
+): Promise<BoardFetchResult> {
   const { boardId, permissionId } = parseMilanoteShareUrl(shareUrl);
   const fetcher = options.fetch ?? globalThis.fetch;
   if (typeof fetcher !== "function") {
@@ -223,8 +261,24 @@ export async function fetchMilanoteBoard(
 
   const maxBoards = normalizeMaxBoards(options.maxBoards);
   const timeoutMs = normalizeTimeout(options.timeoutMs);
+  const scope = options.scope ?? "root";
+  if (scope !== "root" && scope !== "tree") throw new RangeError("Invalid scope.");
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const signal = options.signal
+    ? AbortSignal.any([controller.signal, options.signal])
+    : controller.signal;
+  const start = performance.now();
+  let stage: FetchStage = "permission";
+  let stageStart = start;
+  const diagnostics: BoardDiagnostics = {
+    scope,
+    complete: true,
+    warnings: [],
+    unloadedBoardIds: [],
+    upstreamRequests: 0,
+    timings: { permission: 0, boards: 0, parse: 0, total: 0 },
+  };
 
   try {
     const permissionUrl = new URL(
@@ -232,21 +286,59 @@ export async function fetchMilanoteBoard(
       MILANOTE_ORIGIN,
     );
     permissionUrl.searchParams.set("elementId", boardId);
-    const permissionResponse = await requestJson(fetcher, permissionUrl, controller.signal);
+    diagnostics.upstreamRequests++;
+    const permissionResponse = await requestJson(fetcher, permissionUrl, signal);
     const token = readPermissionToken(permissionResponse);
+    diagnostics.timings.permission = performance.now() - stageStart;
+    stage = "boards";
+    stageStart = performance.now();
     const boardResponse = await fetchBoardTree(
       fetcher,
       boardId,
       token,
       maxBoards,
-      controller.signal,
+      signal,
+      diagnostics,
     );
-
-    return parseMilanoteBoardResponse(boardResponse, {
+    diagnostics.timings.boards = performance.now() - stageStart;
+    stage = "parse";
+    stageStart = performance.now();
+    const document = parseMilanoteBoardResponse(boardResponse, {
       boardId,
       fetchedAt: options.now?.() ?? new Date(),
     });
+    // A placeholder is never evidence that a sub-board is empty.
+    const unloaded = new Set(diagnostics.unloadedBoardIds);
+    const prune = (node: MilanoteDocument["board"]["children"][number]): void => {
+      if (node.type === "BOARD" && unloaded.has(node.id)) node.children = [];
+      else node.children.forEach(prune);
+    };
+    document.board.children.forEach(prune);
+    diagnostics.timings.parse = performance.now() - stageStart;
+    diagnostics.timings.total = performance.now() - start;
+    return { document, diagnostics };
+  } catch (error) {
+    if (controller.signal.aborted) {
+      const timeoutError = new MilanoteParserError("UPSTREAM_TIMEOUT");
+      timeoutError.stage = stage;
+      throw timeoutError;
+    }
+    if (error instanceof MilanoteParserError) error.stage = stage;
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** Existing SDK callers retain recursive loading; the diagnostic API defaults to root. */
+export async function fetchMilanoteBoard(
+  shareUrl: string,
+  options: FetchMilanoteBoardOptions = {},
+): Promise<MilanoteDocument> {
+  return (
+    await fetchMilanoteBoardWithDiagnostics(shareUrl, {
+      ...options,
+      scope: options.scope ?? "tree",
+    })
+  ).document;
 }

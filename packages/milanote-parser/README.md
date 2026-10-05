@@ -1,28 +1,13 @@
 # @milanote-api/parser
 
-Strictly typed helpers for fetching and normalizing a shared Milanote board into
-renderer-friendly JSON.
+将公开分享画板转换为经过 Zod 验证的 MilanoteDocument。
 
 ```ts
-import { fetchMilanoteBoard } from "@milanote-api/parser";
-
-const document = await fetchMilanoteBoard("https://app.milanote.com/board?p=permission", {
-  maxBoards: 100,
-  timeoutMs: 15_000,
-});
+import { fetchMilanoteBoardWithDiagnostics } from "@milanote-api/parser";
+const { document, diagnostics } = await fetchMilanoteBoardWithDiagnostics(
+  "https://app.milanote.com/your-board/shared-view?p=your-permission",
+  { scope: "root", timeoutMs: 15_000 },
+);
 ```
 
-The returned document has a stable `version`, a non-secret `source`, an ISO
-`fetchedAt` value, and a recursive `board`. Nodes form a discriminated union on
-their uppercase `type`. Rich text contains both safe JSON `blocks` and derived
-`plainText`.
-
-Neither the permission identifier nor the acquired token is included in results
-or errors.
-
-## Commands
-
-```sh
-pnpm --filter @milanote-api/parser test
-pnpm --filter @milanote-api/parser build
-```
+诊断入口默认只读根画板；scope=tree 递归读取。diagnostics 标记未展开、达到上限和失败的子画板。原 fetchMilanoteBoard 保留文档返回类型和默认递归读取。接口不缓存请求。

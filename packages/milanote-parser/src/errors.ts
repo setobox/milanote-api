@@ -1,6 +1,7 @@
 export type MilanoteParserErrorCode =
   | "INVALID_SHARE_URL"
   | "UPSTREAM_REQUEST_FAILED"
+  | "UPSTREAM_TIMEOUT"
   | "UPSTREAM_ACCESS_DENIED"
   | "INVALID_UPSTREAM_RESPONSE"
   | "BOARD_NOT_FOUND";
@@ -8,6 +9,7 @@ export type MilanoteParserErrorCode =
 const ERROR_MESSAGES: Record<MilanoteParserErrorCode, string> = {
   INVALID_SHARE_URL: "The Milanote share URL is invalid.",
   UPSTREAM_REQUEST_FAILED: "Milanote could not be reached.",
+  UPSTREAM_TIMEOUT: "Milanote did not respond before the deadline.",
   UPSTREAM_ACCESS_DENIED: "The shared Milanote board is not accessible.",
   INVALID_UPSTREAM_RESPONSE: "Milanote returned an invalid response.",
   BOARD_NOT_FOUND: "The shared Milanote board was not found.",
@@ -16,6 +18,7 @@ const ERROR_MESSAGES: Record<MilanoteParserErrorCode, string> = {
 export class MilanoteParserError extends Error {
   readonly code: MilanoteParserErrorCode;
   readonly status?: number;
+  stage?: "permission" | "boards" | "parse";
 
   constructor(code: MilanoteParserErrorCode, options: { status?: number } = {}) {
     super(ERROR_MESSAGES[code]);

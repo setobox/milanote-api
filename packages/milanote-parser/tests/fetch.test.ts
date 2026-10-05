@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vite-plus/test";
-import { fetchMilanoteBoard, MilanoteParserError, type MilanoteFetch } from "../src/index.ts";
+import {
+  fetchMilanoteBoard,
+  fetchMilanoteBoardWithDiagnostics,
+  MilanoteParserError,
+  type MilanoteFetch,
+} from "../src/index.ts";
 
 const BOARD_ID = "board_network_demo";
 const PERMISSION_ID = "permission_network_demo";
@@ -147,7 +152,7 @@ describe("fetchMilanoteBoard", () => {
     );
   });
 
-  test("honors maxBoards and leaves unfetched nested boards as empty nodes", async () => {
+  test("preserves the legacy SDK placeholder shape when maxBoards is reached", async () => {
     const nestedBoardId = "board_bounded_demo";
     let callCount = 0;
     const fetcher: MilanoteFetch = async (input) => {
@@ -239,7 +244,129 @@ describe("fetchMilanoteBoard", () => {
       });
 
     await expect(fetchMilanoteBoard(SHARE_URL, { fetch: fetcher, timeoutMs: 5 })).rejects.toEqual(
-      expect.objectContaining({ code: "UPSTREAM_REQUEST_FAILED" }),
+      expect.objectContaining({ code: "UPSTREAM_TIMEOUT", stage: "permission" }),
     );
+  });
+});
+
+describe("diagnostic reads", () => {
+  test("caps the default tree at 100 boards and batches children without duplicates", async () => {
+    const children = Object.fromEntries(
+      Array.from({ length: 101 }, (_, index) => {
+        const id = `child_${index}`;
+        return [
+          id,
+          { id, elementType: "BOARD", location: { parentId: BOARD_ID }, content: { title: id } },
+        ];
+      }),
+    );
+    const batches: string[][] = [];
+    const result = await fetchMilanoteBoardWithDiagnostics(SHARE_URL, {
+      scope: "tree",
+      fetch: async (input) => {
+        const url = inputUrl(input);
+        if (url.pathname.startsWith("/api/permissions")) return jsonResponse({ token: TOKEN });
+        const ids = url.searchParams.get("ids")!.split(",");
+        batches.push(ids);
+        return jsonResponse(
+          ids[0] === BOARD_ID
+            ? rootResponse(children)
+            : {
+                elements: children,
+                childrenReturned: Object.fromEntries(ids.map((id) => [id, true])),
+                boardIds: ids,
+              },
+        );
+      },
+    });
+    expect(batches.map((batch) => batch.length)).toEqual([1, 50, 49]);
+    expect(new Set(batches.flat()).size).toBe(100);
+    expect(result.diagnostics).toMatchObject({
+      complete: false,
+      upstreamRequests: 4,
+      unloadedBoardIds: ["child_99", "child_100"],
+      warnings: [{ code: "BOARD_LIMIT_REACHED", boardIds: ["child_99", "child_100"] }],
+    });
+  });
+  test("a failed child in an otherwise successful batch remains explicitly unloaded", async () => {
+    let calls = 0;
+    const children = {
+      good: {
+        id: "good",
+        elementType: "BOARD",
+        location: { parentId: BOARD_ID },
+        content: { title: "Good" },
+      },
+      bad: {
+        id: "bad",
+        elementType: "BOARD",
+        location: { parentId: BOARD_ID },
+        content: { title: "Bad" },
+      },
+    };
+    const result = await fetchMilanoteBoardWithDiagnostics(SHARE_URL, {
+      scope: "tree",
+      fetch: async () => {
+        calls++;
+        return jsonResponse(
+          calls === 1
+            ? { token: TOKEN }
+            : calls === 2
+              ? rootResponse(children)
+              : { elements: children, childrenReturned: { good: true, bad: false } },
+        );
+      },
+    });
+    expect(result.diagnostics).toMatchObject({
+      complete: false,
+      unloadedBoardIds: ["bad"],
+      warnings: [{ code: "SUB_BOARD_FAILED", boardIds: ["bad"] }],
+    });
+  });
+  const nested = {
+    child: {
+      id: "child",
+      elementType: "BOARD",
+      location: { parentId: BOARD_ID },
+      content: { title: "Child" },
+    },
+  };
+  test("root scope uses two requests, no cache, and marks unopened boards", async () => {
+    const calls: RequestInit[] = [];
+    const result = await fetchMilanoteBoardWithDiagnostics(SHARE_URL, {
+      fetch: async (_url, init) => {
+        calls.push(init ?? {});
+        return jsonResponse(calls.length === 1 ? { token: TOKEN } : rootResponse(nested));
+      },
+    });
+    expect(calls).toHaveLength(2);
+    expect(calls.every((call) => call.cache === "no-store")).toBe(true);
+    expect(result.diagnostics).toMatchObject({
+      scope: "root",
+      complete: true,
+      unloadedBoardIds: ["child"],
+      upstreamRequests: 2,
+      warnings: [{ code: "SUB_BOARDS_NOT_EXPANDED" }],
+    });
+  });
+  test("reports failed child batches", async () => {
+    let calls = 0;
+    const result = await fetchMilanoteBoardWithDiagnostics(SHARE_URL, {
+      scope: "tree",
+      fetch: async () => {
+        calls++;
+        return calls === 1
+          ? jsonResponse({ token: TOKEN })
+          : calls === 2
+            ? jsonResponse(rootResponse(nested))
+            : jsonResponse({}, 503);
+      },
+    });
+    expect(result.diagnostics).toMatchObject({
+      complete: false,
+      upstreamRequests: 3,
+      unloadedBoardIds: ["child"],
+      warnings: [{ code: "SUB_BOARD_FAILED" }],
+    });
   });
 });
