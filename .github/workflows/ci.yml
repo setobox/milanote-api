@@ -1,6 +1,7 @@
 name: CI
 on:
   workflow_call: {}
+  workflow_dispatch: {}
   pull_request:
   push:
     branches: [main]
@@ -35,7 +36,7 @@ jobs:
           path: apps/playground/dist
   pages:
     name: Publish static docs and workbench
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.API_BASE_URL != ''
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.API_BASE_URL != ''
     needs: verify
     runs-on: ubuntu-latest
     permissions:
@@ -57,7 +58,7 @@ jobs:
         uses: actions/deploy-pages@v4
   worker:
     name: Publish stateless Worker API
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_WORKER == 'true'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.DEPLOY_WORKER == 'true'
     needs: verify
     runs-on: ubuntu-latest
     environment: production
@@ -78,4 +79,4 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/api-worker
           packageManager: pnpm
-          command: deploy
+          command: deploy --var PUBLIC_SITE_URL:${{ vars.PUBLIC_SITE_URL || format('https://{0}.github.io/{1}/docs/', github.repository_owner, github.event.repository.name) }}

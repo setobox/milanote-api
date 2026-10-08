@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vp exec wrangler dev --port 8787",
+    "test": "vp test",
     "build": "vp run typecheck && vp exec wrangler deploy --dry-run --outdir dist",
     "typecheck": "vp exec tsc --noEmit",
     "deploy": "vp exec wrangler deploy"

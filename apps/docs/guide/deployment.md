@@ -14,6 +14,8 @@ pnpm --filter @milanote-api/worker run deploy
 
 Worker 不绑定数据库、KV、R2 或 Cron Trigger。部署需要自己的 CLOUDFLARE_API_TOKEN 和 CLOUDFLARE_ACCOUNT_ID。build 只执行类型检查与 dry-run，不发布。
 
+可以通过 Worker 环境变量 `PUBLIC_SITE_URL` 指定文档首页的完整 HTTPS 地址。配置后，API 域名的根路径会以 302 跳转到文档站，查询参数不会被转发；`/api/*` 仍由 Worker 处理。未配置时，Worker 只提供 API。CI 默认使用当前仓库的 GitHub Pages 文档首页；自定义域名或用户主页仓库需另外设置仓库变量 `PUBLIC_SITE_URL` 为实际文档首页地址。
+
 ## 静态站点与 GitHub Pages
 
 构建时设置：
@@ -31,7 +33,7 @@ PUBLIC_BASE_PATH 必须与 Pages 仓库路径相同；自定义域名或用户�
 
 CI 会检查格式、类型、测试、文档示例、构建与站内链接。Pages 与 Worker 分别发布，静态站点不包含任何 Worker 密钥。
 
-CI 默认按仓库名称生成子路径；自定义域名或用户主页仓库可设置仓库变量 `PUBLIC_BASE_PATH=/`。没有 `API_BASE_URL` 时只验证构建，不发布 Pages。自动发布只在 main 分支 push 且验证通过后执行，PR 不会部署。
+CI 默认按仓库名称生成子路径；自定义域名或用户主页仓库可设置仓库变量 `PUBLIC_BASE_PATH=/`。没有 `API_BASE_URL` 时只验证构建，不发布 Pages。main 分支 push 或在 Actions 的 CI 页面选择 Run workflow 后，验证通过才会发布，PR 不会部署。
 
 ## 本地开发
 
